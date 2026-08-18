@@ -1,11 +1,10 @@
-from scapy.all import *
+import os
+import time
+from sys import argv
 from threading import Thread
 
 import pandas
-import time
-
-from sys import argv
-import os
+from scapy.all import *
 
 # initialize the networks dataframe that will contain all access points nearby
 networks_df = pandas.DataFrame(columns=["BSSID", "SSID", "zone", "subzone", "dBm_Signal", "Channel", "Crypto"])
@@ -52,7 +51,7 @@ def callback(packet):
         networks_df = pandas.DataFrame([network_row])
         if networks_df.shape[0] > 0 :
             n_measures += 1
-            print('--- Measure {} ---'.format(n_measures))
+            print(f'--- Measure {n_measures} ---')
             print(networks_df)
             time.sleep(0.25)
             
@@ -69,7 +68,7 @@ def callback(packet):
 def change_channel():
     ch = 1
     while True:
-        print('Channel {}'.format(ch))
+        print(f'Channel {ch}')
         os.system(f"iwconfig {interface} channel {ch}")
         # switch channel from 1 to 14 each 0.5s
         if ch < 14 :

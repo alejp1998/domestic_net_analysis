@@ -1,0 +1,29 @@
+[project]
+name = "domestic-net-analysis"
+version = "1.1.0"
+description = "Domestic WiFi network analysis: signal mapping, optimal placement and repeater simulation (SCON 2020)."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "pandas",
+    "geopandas",
+    "shapely",
+    "matplotlib",
+    "plotly",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "jupyter", "nbconvert"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+include = ["tests/**", "analysis_model.py", "wifi_scanner.py"]
+extend-exclude = ["**/__pycache__/**", ".ipynb_checkpoints"]
+
+[tool.ruff.lint.per-file-ignores]
+"wifi_scanner.py" = ["E722", "PLW0604", "PLR1722"]  # legacy scanner, left as-is

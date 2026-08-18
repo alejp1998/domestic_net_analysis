@@ -22,14 +22,14 @@ measurements.
    - 2.4/5 GHz band occupancy & channel statistics
    - **WiFi placement simulation**: `dBm = dBm_max − (distance_m × 3 dB/m + walls × 7 dB/wall)`
      with a hand-built 10×10 zone wall matrix, scored by zone-weighted linear
-     power → **the optimal room is Salon-2**
+     power → **the optimal room is Pasillo-2**
    - **repeater simulation**: same model with a second source, per-room gain
 
 ## 🧪 Model & tests
 
 The model was extracted into **`analysis_model.py`** (reusable + unit-tested)
 and ported 1:1 to JavaScript for the web edition (cross-checked: both find
-**Salon-2** optimal).
+**Pasillo-2** optimal, matching the notebook's executed output).
 
 ```bash
 pip install -e ".[dev]"

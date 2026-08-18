@@ -10,8 +10,13 @@
         try {
           var t = localStorage.getItem("theme");
           if (t) document.documentElement.setAttribute("data-theme", t);
-          else if (window.matchMedia("(prefers-color-scheme: dark)").matches)
-            document.documentElement.setAttribute("data-theme", "dark");
+          else
+            document.documentElement.setAttribute(
+              "data-theme",
+              window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light",
+            );
         } catch (e) {}
       })();
     </script>
@@ -22,16 +27,40 @@
       <div class="brand">
         <div class="brand-logo">
           <svg viewBox="0 0 64 64" width="26" height="26">
-            <rect x="2" y="2" width="60" height="60" rx="14" fill="#FFFFFF" stroke="#0F172A" stroke-width="2.5" />
-            <circle cx="24" cy="32" r="5" fill="#0F172A" />
-            <path d="M24 32 m0 0 a 12 12 0 0 1 20 0 M24 32 m0 0 a 19 19 0 0 1 32 0" fill="none" stroke="#0F172A" stroke-width="2.5" />
-            <circle cx="12" cy="12" r="4" fill="#F59E0B" stroke="#0F172A" stroke-width="2" />
-            <path d="M16 48 h32 M16 52 h32" stroke="#0F172A" stroke-width="3" stroke-linecap="round" />
+            <rect
+              x="2"
+              y="2"
+              width="60"
+              height="60"
+              rx="14"
+              fill="#FFFFFF"
+              stroke="#0F172A"
+              stroke-width="2.5"
+            />
+            <path
+              d="M32 8 L54 26 H46 V50 H18 V26 H10 Z"
+              fill="none"
+              stroke="#0F172A"
+              stroke-width="2.5"
+              stroke-linejoin="round"
+            />
+            <circle cx="32" cy="38" r="3.5" fill="#0F172A" />
+            <path
+              d="M24 30 a 12 12 0 0 1 16 0 M19 24 a 20 20 0 0 1 26 0"
+              fill="none"
+              stroke="#0F172A"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
           </svg>
         </div>
         <div>
-          <h1>Domestic Network Analysis <span class="badge">WEB EDITION</span></h1>
-          <div class="subtitle">WiFi signal mapping · optimal placement · repeater simulation</div>
+          <h1>
+            Domestic Network Analysis <span class="badge">WEB EDITION</span>
+          </h1>
+          <div class="subtitle">
+            WiFi signal mapping · optimal placement · repeater simulation
+          </div>
         </div>
       </div>
       <div class="header-actions">
@@ -52,14 +81,41 @@
         <section class="panel">
           <h2>📶 Model</h2>
           <div class="mode-row">
-            <button class="btn mode-btn active" id="mode-meas">📡 Measured</button>
+            <button class="btn mode-btn active" id="mode-meas">
+              📡 Measured
+            </button>
             <button class="btn mode-btn" id="mode-sim">🧪 Simulate</button>
           </div>
           <div id="sim-options" class="hidden">
-            <label class="toggle-row"><input type="checkbox" id="rep-toggle" /> <span>Repeater (2nd source)</span></label>
-            <label class="slider-row">Loss per metre <input id="db-per-m" type="range" min="0" max="8" step="0.5" value="3" /><b id="db-per-m-v">3 dB</b></label>
-            <label class="slider-row">Loss per wall <input id="db-per-w" type="range" min="0" max="15" step="0.5" value="7" /><b id="db-per-w-v">7 dB</b></label>
-            <button class="btn primary" id="btn-optimal">✨ Find optimal room</button>
+            <label class="toggle-row"
+              ><input type="checkbox" id="rep-toggle" />
+              <span>Repeater (2nd source)</span></label
+            >
+            <label class="slider-row"
+              >Loss per metre
+              <input
+                id="db-per-m"
+                type="range"
+                min="0"
+                max="8"
+                step="0.5"
+                value="3"
+              /><b id="db-per-m-v">3 dB</b></label
+            >
+            <label class="slider-row"
+              >Loss per wall
+              <input
+                id="db-per-w"
+                type="range"
+                min="0"
+                max="15"
+                step="0.5"
+                value="7"
+              /><b id="db-per-w-v">7 dB</b></label
+            >
+            <button class="btn primary" id="btn-optimal">
+              ✨ Find optimal room
+            </button>
           </div>
           <div id="meas-note" class="keys">
             Measured mean dBm per room of the house's own 5&nbsp;GHz network
@@ -80,7 +136,8 @@
     </main>
 
     <footer class="hintbar">
-      Measured: real scan · Simulate: drag the router (or the repeater) — predicted dBm recomputes live
+      Measured: real scan · Simulate: drag the router (or the repeater) —
+      predicted dBm recomputes live
     </footer>
 
     <div id="guide" class="modal hidden">
@@ -90,37 +147,45 @@
         <h2>📖 About this page</h2>
         <h3>🎓 The Project</h3>
         <p>
-          <b>Domestic Network Analysis</b> (SCON 2020) scans the WiFi spectrum around a
-          home with a monitor-mode adapter (<code>wifi_scanner.py</code>, scapy) and
-          analyses the collected beacons: <b>signal strength per room</b>, <b>channel
-          occupancy</b> of the 2.4&nbsp;GHz and 5&nbsp;GHz bands, and two simulations —
-          <b>optimal router placement</b> and <b>repeater placement</b> — based on a
-          simple path-loss model fitted from the measurements.
+          <b>Domestic Network Analysis</b> (SCON 2020) scans the WiFi spectrum
+          around a home with a monitor-mode adapter
+          (<code>wifi_scanner.py</code>, scapy) and analyses the collected
+          beacons: <b>signal strength per room</b>, <b>channel occupancy</b> of
+          the 2.4&nbsp;GHz and 5&nbsp;GHz bands, and two simulations —
+          <b>optimal router placement</b> and <b>repeater placement</b> — based
+          on a simple path-loss model fitted from the measurements.
         </p>
         <h3>📶 The model</h3>
         <p>
           Predicted signal in a room:
           <code>dBm = dBm_max − (distance_m × 3 dB/m + walls × 7 dB/wall)</code>
-          where the wall count between zones comes from a hand-built 10×10 matrix
-          (estimated from the scan) and distances are scaled to metres. The
+          where the wall count between zones comes from a hand-built 10×10
+          matrix (estimated from the scan) and distances are scaled to metres.
+          The
           <b>score</b> of a placement is the zone-weighted mean linear power
           (living areas weighted 1.5×, bedrooms 1.25×).
         </p>
         <h3>🧪 Simulate</h3>
         <p>
-          Drag the <b>router</b> anywhere on the floor plan — every room's predicted
-          dBm and the score list update live. Toggle the <b>repeater</b> to add a second
-          source (drag the repeater too; each room takes the best of the two signals).
-          Adjust the model's dB-per-metre and dB-per-wall sliders to see how the
-          optimum moves. <b>✨ Find optimal room</b> runs the notebook's exhaustive
-          search (every room as the source) and highlights the winner.
+          Drag the <b>router</b> anywhere on the floor plan — every room's
+          predicted dBm and the score list update live. Toggle the
+          <b>repeater</b> to add a second source (drag the repeater too; each
+          room takes the best of the two signals). Adjust the model's
+          dB-per-metre and dB-per-wall sliders to see how the optimum moves.
+          <b>✨ Find optimal room</b> runs the notebook's exhaustive search
+          (every room as the source) and highlights the winner.
         </p>
         <h3>🖥️ Implementation</h3>
         <p>
           The model functions from the notebook were extracted into
-          <code>analysis_model.py</code> (unit-tested) and ported 1:1 to JavaScript
-          for this page. Source:
-          <a href="https://github.com/alejp1998/domestic_net_analysis" target="_blank" rel="noopener">github.com/alejp1998/domestic_net_analysis</a>.
+          <code>analysis_model.py</code> (unit-tested) and ported 1:1 to
+          JavaScript for this page. Source:
+          <a
+            href="https://github.com/alejp1998/domestic_net_analysis"
+            target="_blank"
+            rel="noopener"
+            >github.com/alejp1998/domestic_net_analysis</a
+          >.
         </p>
       </div>
     </div>

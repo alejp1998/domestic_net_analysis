@@ -7,7 +7,9 @@
 
   var canvas = document.getElementById("view");
   var ctx = canvas.getContext("2d");
-  var $id = function (id) { return document.getElementById(id); };
+  var $id = function (id) {
+    return document.getElementById(id);
+  };
 
   var WALLS_BT = [
     [0, 1, 1, 1, 1, 1, 1, 1, 1, 2],
@@ -26,20 +28,54 @@
 
   var PAL = {
     dark: {
-      bg: "#0b0f19", floor: "#101a2c", wall: "#334155", wallEdge: "#475569",
-      text: "#e2e8f0", muted: "#94a3b8", faint: "#64748b",
-      router: "#f59e0b", routerEdge: "#b45309", rep: "#22d3ee", repEdge: "#0e7490",
+      bg: "#0b0f19",
+      floor: "#101a2c",
+      wall: "#334155",
+      wallEdge: "#475569",
+      text: "#e2e8f0",
+      muted: "#94a3b8",
+      faint: "#64748b",
+      router: "#f59e0b",
+      routerEdge: "#b45309",
+      rep: "#22d3ee",
+      repEdge: "#0e7490",
       optimal: "#fbbf24",
-      heat: ["#0f172a", "#0c4a6e", "#0e7490", "#06b6d4", "#34d399", "#fbbf24", "#f97316"],
-      panel: "#111c30", border: "rgba(255,255,255,0.1)",
+      heat: [
+        "#0f172a",
+        "#0c4a6e",
+        "#0e7490",
+        "#06b6d4",
+        "#34d399",
+        "#fbbf24",
+        "#f97316",
+      ],
+      panel: "#111c30",
+      border: "rgba(255,255,255,0.1)",
     },
     light: {
-      bg: "#f1f5f9", floor: "#f8fafc", wall: "#cbd5e1", wallEdge: "#94a3b8",
-      text: "#0f172a", muted: "#475569", faint: "#64748b",
-      router: "#f59e0b", routerEdge: "#b45309", rep: "#0891b2", repEdge: "#0e7490",
+      bg: "#f1f5f9",
+      floor: "#f8fafc",
+      wall: "#cbd5e1",
+      wallEdge: "#94a3b8",
+      text: "#0f172a",
+      muted: "#475569",
+      faint: "#64748b",
+      router: "#f59e0b",
+      routerEdge: "#b45309",
+      rep: "#0891b2",
+      repEdge: "#0e7490",
       optimal: "#d97706",
-      heat: ["#f8fafc", "#e0f2fe", "#7dd3fc", "#22d3ee", "#34d399", "#fbbf24", "#f97316"],
-      panel: "#ffffff", border: "rgba(15,23,42,0.12)",
+      heat: [
+        "#f8fafc",
+        "#e0f2fe",
+        "#7dd3fc",
+        "#22d3ee",
+        "#34d399",
+        "#fbbf24",
+        "#f97316",
+      ],
+      panel: "#ffffff",
+      border: "rgba(15,23,42,0.12)",
     },
   };
 
@@ -69,12 +105,20 @@
   }
 
   function bounds() {
-    var xs = [], ys = [];
+    var xs = [],
+      ys = [];
     rooms.forEach(function (r) {
-      r.poly.forEach(function (p) { xs.push(p[0]); ys.push(p[1]); });
+      r.poly.forEach(function (p) {
+        xs.push(p[0]);
+        ys.push(p[1]);
+      });
     });
-    return { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs),
-             minY: Math.min.apply(null, ys), maxY: Math.max.apply(null, ys) };
+    return {
+      minX: Math.min.apply(null, xs),
+      maxX: Math.max.apply(null, xs),
+      minY: Math.min.apply(null, ys),
+      maxY: Math.max.apply(null, ys),
+    };
   }
 
   // ---------------------------------------------------------------- model
@@ -85,8 +129,12 @@
   function pointInPoly(x, y, poly) {
     var inside = false;
     for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      var xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
-      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+      var xi = poly[i][0],
+        yi = poly[i][1],
+        xj = poly[j][0],
+        yj = poly[j][1];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)
+        inside = !inside;
     }
     return inside;
   }
@@ -95,10 +143,14 @@
     for (var i = 0; i < rooms.length; i++) {
       if (pointInPoly(x, y, rooms[i].poly)) return rooms[i].zone;
     }
-    var best = rooms[0].zone, bestD = Infinity;
+    var best = rooms[0].zone,
+      bestD = Infinity;
     for (var j = 0; j < rooms.length; j++) {
       var d = Math.sqrt((rooms[j].cx - x) ** 2 + (rooms[j].cy - y) ** 2);
-      if (d < bestD) { bestD = d; best = rooms[j].zone; }
+      if (d < bestD) {
+        bestD = d;
+        best = rooms[j].zone;
+      }
     }
     return best;
   }
@@ -116,7 +168,9 @@
     var r = predictFrom(router, dbPerM, dbPerWall);
     if (repeaterOn && rep) {
       var rr = predictFrom(rep, dbPerM, dbPerWall);
-      r = r.map(function (v, i) { return Math.max(v, rr[i]); });
+      r = r.map(function (v, i) {
+        return Math.max(v, rr[i]);
+      });
     }
     return r;
   }
@@ -131,14 +185,24 @@
     }
     var scores = [];
     for (var z in perZone) {
-      var mean = perZone[z].reduce(function (a, b) { return a + b; }, 0) / perZone[z].length;
+      var mean =
+        perZone[z].reduce(function (a, b) {
+          return a + b;
+        }, 0) / perZone[z].length;
       scores.push(Math.pow(10, mean / 10) * (ZONE_WEIGHTS[z] || 1));
     }
-    return (1e6 * scores.reduce(function (a, b) { return a + b; }, 0)) / scores.length;
+    return (
+      (1e6 *
+        scores.reduce(function (a, b) {
+          return a + b;
+        }, 0)) /
+      scores.length
+    );
   }
 
   function findOptimalRoom() {
-    var best = null, bestScore = -1;
+    var best = null,
+      bestScore = -1;
     for (var i = 0; i < rooms.length; i++) {
       var src = { x: rooms[i].cx, y: rooms[i].cy };
       var z = rooms[i].zone;
@@ -147,13 +211,20 @@
         return dbmMax - (d * dbPerM() + WALLS_BT[z][r.zone] * dbPerWall());
       });
       var s = roomScore(dbms);
-      if (s > bestScore) { bestScore = s; best = rooms[i]; }
+      if (s > bestScore) {
+        bestScore = s;
+        best = rooms[i];
+      }
     }
     return best;
   }
 
-  function dbPerM() { return Number($id("db-per-m").value); }
-  function dbPerWall() { return Number($id("db-per-w").value); }
+  function dbPerM() {
+    return Number($id("db-per-m").value);
+  }
+  function dbPerWall() {
+    return Number($id("db-per-w").value);
+  }
 
   // ---------------------------------------------------------------- render
   function sizeCanvas() {
@@ -179,9 +250,12 @@
     ];
   }
 
-  function dpr() { return Math.max(1, window.devicePixelRatio || 1); }
+  function dpr() {
+    return Math.max(1, window.devicePixelRatio || 1);
+  }
 
-  var heatMin = -90, heatMax = -35;
+  var heatMin = -90,
+    heatMax = -35;
 
   function heatColor(v, p) {
     var t = Math.max(0, Math.min(1, (v - heatMin) / (heatMax - heatMin)));
@@ -199,7 +273,10 @@
 
     B = bounds();
     var dbms = null;
-    if (mode === "meas") dbms = rooms.map(function (r) { return r.dBm; });
+    if (mode === "meas")
+      dbms = rooms.map(function (r) {
+        return r.dBm;
+      });
     else dbms = predictedDbm(dbPerM(), dbPerWall());
 
     var dBmVals = dbms.slice();
@@ -208,7 +285,9 @@
 
     // rooms
     rooms.forEach(function (r, i) {
-      var pts = r.poly.map(function (pp) { return toPx(pp[0], pp[1]); });
+      var pts = r.poly.map(function (pp) {
+        return toPx(pp[0], pp[1]);
+      });
       ctx.beginPath();
       ctx.moveTo(pts[0][0], pts[0][1]);
       for (var k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0], pts[k][1]);
@@ -232,7 +311,11 @@
       ctx.font = "600 11px system-ui";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(r.name.replace("Habitacion", "Hab.").replace("Pasillo", "Pas."), cp[0], cp[1] - 5);
+      ctx.fillText(
+        r.name.replace("Habitacion", "Hab.").replace("Pasillo", "Pas."),
+        cp[0],
+        cp[1] - 5,
+      );
       ctx.fillStyle = p.muted;
       ctx.font = "10px system-ui";
       ctx.fillText(Math.round(dbms[i]) + " dBm", cp[0], cp[1] + 9);
@@ -286,7 +369,8 @@
     ctx.fill();
     ctx.stroke();
     var grad = ctx.createLinearGradient(lx + 10, 0, lx + lw - 10, 0);
-    for (var i = 0; i < p.heat.length; i++) grad.addColorStop(i / (p.heat.length - 1), p.heat[i]);
+    for (var i = 0; i < p.heat.length; i++)
+      grad.addColorStop(i / (p.heat.length - 1), p.heat[i]);
     ctx.fillStyle = grad;
     ctx.fillRect(lx + 10, ly + 12, lw - 20, 10);
     ctx.fillStyle = p.muted;
@@ -302,17 +386,34 @@
     var box = $id("scores");
     var items = rooms
       .map(function (r, i) {
-        return { name: r.name, zone: r.zone, dbm: dbms[i], score: Math.pow(10, dbms[i] / 10) * (ZONE_WEIGHTS[r.zone] || 1) };
+        return {
+          name: r.name,
+          zone: r.zone,
+          dbm: dbms[i],
+          score: Math.pow(10, dbms[i] / 10) * (ZONE_WEIGHTS[r.zone] || 1),
+        };
       })
-      .sort(function (a, b) { return b.score - a.score; });
+      .sort(function (a, b) {
+        return b.score - a.score;
+      });
     var html = "";
     items.slice(0, 8).forEach(function (it, idx) {
       var pct = Math.round((it.score / items[0].score) * 100);
       html +=
-        '<div class="score-row' + (it.name === optimalName ? " best" : "") + '">' +
-        '<span class="score-name">' + (idx + 1) + ". " + it.name + "</span>" +
-        '<span class="score-val">' + Math.round(it.dbm) + " dBm</span>" +
-        '<div class="score-bar"><div style="width:' + pct + '%"></div></div>' +
+        '<div class="score-row' +
+        (it.name === optimalName ? " best" : "") +
+        '">' +
+        '<span class="score-name">' +
+        (idx + 1) +
+        ". " +
+        it.name +
+        "</span>" +
+        '<span class="score-val">' +
+        Math.round(it.dbm) +
+        " dBm</span>" +
+        '<div class="score-bar"><div style="width:' +
+        pct +
+        '%"></div></div>' +
         "</div>";
     });
     box.innerHTML = html;
@@ -348,7 +449,15 @@
     });
     canvas.addEventListener("pointerup", function () {
       if (drag) {
-        log("📶 Source moved — " + (drag === "router" ? "router" : "repeater") + " at zone " + zoneAt(drag === "router" ? router.x : rep.x, drag === "router" ? router.y : rep.y));
+        log(
+          "📶 Source moved — " +
+            (drag === "router" ? "router" : "repeater") +
+            " at zone " +
+            zoneAt(
+              drag === "router" ? router.x : rep.x,
+              drag === "router" ? router.y : rep.y,
+            ),
+        );
         drag = null;
         renderScores(predictedDbm(dbPerM(), dbPerWall()));
       }
@@ -365,8 +474,14 @@
   var guideOpen = false;
   function wireGuide() {
     var guide = $id("guide");
-    function open() { guideOpen = true; guide.classList.remove("hidden"); }
-    function close() { guideOpen = false; guide.classList.add("hidden"); }
+    function open() {
+      guideOpen = true;
+      guide.classList.remove("hidden");
+    }
+    function close() {
+      guideOpen = false;
+      guide.classList.add("hidden");
+    }
     $id("btn-guide").addEventListener("click", open);
     guide.querySelectorAll("[data-close-guide]").forEach(function (el) {
       el.addEventListener("click", close);
@@ -386,7 +501,11 @@
       $id("meas-note").classList.remove("hidden");
       optimalName = null;
       render();
-      renderScores(rooms.map(function (r) { return r.dBm; }));
+      renderScores(
+        rooms.map(function (r) {
+          return r.dBm;
+        }),
+      );
     });
     $id("mode-sim").addEventListener("click", function () {
       mode = "sim";
@@ -396,7 +515,9 @@
       $id("meas-note").classList.add("hidden");
       if (!router) {
         router = { x: rooms[0].cx, y: rooms[0].cy };
-        log("🧪 Simulation — drag the router; toggle the repeater for a 2nd source.");
+        log(
+          "🧪 Simulation — drag the router; toggle the repeater for a 2nd source.",
+        );
       }
       render();
       renderScores(predictedDbm(dbPerM(), dbPerWall()));
@@ -406,7 +527,11 @@
       repeaterOn = this.checked;
       if (repeaterOn && !rep) {
         rep = { x: rooms[rooms.length - 1].cx, y: rooms[rooms.length - 1].cy };
-        log("🔁 Repeater added at " + rooms[rooms.length - 1].name + " — drag it too.");
+        log(
+          "🔁 Repeater added at " +
+            rooms[rooms.length - 1].name +
+            " — drag it too.",
+        );
       }
       render();
       renderScores(predictedDbm(dbPerM(), dbPerWall()));
@@ -414,7 +539,8 @@
 
     ["db-per-m", "db-per-w"].forEach(function (id) {
       $id(id).addEventListener("input", function () {
-        $id(id + "-v").textContent = id === "db-per-m" ? this.value + " dB" : this.value + " dB";
+        $id(id + "-v").textContent =
+          id === "db-per-m" ? this.value + " dB" : this.value + " dB";
         render();
         renderScores(predictedDbm(dbPerM(), dbPerWall()));
       });
@@ -423,15 +549,24 @@
     $id("btn-optimal").addEventListener("click", function () {
       var best = findOptimalRoom();
       optimalName = best.name;
-      log("✨ Optimal router location: " + best.name + " (zone " + best.zone + ") — mean predicted " +
-        Math.round(predictedDbm(dbPerM(), dbPerWall())[rooms.indexOf(best)]) + " dBm in it.");
+      log(
+        "✨ Optimal router location: " +
+          best.name +
+          " (zone " +
+          best.zone +
+          ") — mean predicted " +
+          Math.round(predictedDbm(dbPerM(), dbPerWall())[rooms.indexOf(best)]) +
+          " dBm in it.",
+      );
       render();
       renderScores(predictedDbm(dbPerM(), dbPerWall()));
     });
 
     $id("btn-reset").addEventListener("click", function () {
       router = { x: rooms[0].cx, y: rooms[0].cy };
-      rep = repeaterOn ? { x: rooms[rooms.length - 1].cx, y: rooms[rooms.length - 1].cy } : null;
+      rep = repeaterOn
+        ? { x: rooms[rooms.length - 1].cx, y: rooms[rooms.length - 1].cy }
+        : null;
       optimalName = null;
       log("↻ Reset: router back at " + rooms[0].name + ".");
       render();
@@ -439,19 +574,32 @@
     });
 
     $id("btn-theme").addEventListener("click", function () {
-      var t = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      var t =
+        document.documentElement.getAttribute("data-theme") === "dark"
+          ? "light"
+          : "dark";
       document.documentElement.setAttribute("data-theme", t);
-      try { localStorage.setItem("theme", t); } catch (e) {}
+      try {
+        localStorage.setItem("theme", t);
+      } catch (e) {}
       applyTheme();
       render();
     });
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (ev) {
-      if (localStorage.getItem("theme")) return;
-      document.documentElement.setAttribute("data-theme", ev.matches ? "dark" : "light");
-      applyTheme();
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .addEventListener("change", function (ev) {
+        if (localStorage.getItem("theme")) return;
+        document.documentElement.setAttribute(
+          "data-theme",
+          ev.matches ? "dark" : "light",
+        );
+        applyTheme();
+        render();
+      });
+    window.addEventListener("resize", function () {
+      sizeCanvas();
       render();
     });
-    window.addEventListener("resize", function () { sizeCanvas(); render(); });
   }
 
   function applyTheme() {
@@ -461,7 +609,9 @@
 
   // ---------------------------------------------------------------- init
   fetch("data/rooms.json")
-    .then(function (r) { return r.json(); })
+    .then(function (r) {
+      return r.json();
+    })
     .then(function (d) {
       DATA = d;
       rooms = d.rooms;
@@ -475,9 +625,14 @@
       log("📡 Measured mode — real scan of the house's own 5 GHz network.");
       log("🧪 Switch to Simulate and drag the router to find the best spot!");
       render();
-      renderScores(rooms.map(function (r) { return r.dBm; }));
+      renderScores(
+        rooms.map(function (r) {
+          return r.dBm;
+        }),
+      );
     })
     .catch(function (e) {
-      document.body.innerHTML = "<p style='padding:20px'>Failed to load data: " + e + "</p>";
+      document.body.innerHTML =
+        "<p style='padding:20px'>Failed to load data: " + e + "</p>";
     });
 })();

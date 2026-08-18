@@ -55,6 +55,7 @@ body {
 .topbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 14px;
   padding: 9px 18px;
   background: var(--bg-card);

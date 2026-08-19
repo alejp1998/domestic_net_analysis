@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 build_maps.py — generates webgame/data/maps.json for the interactive floor plan.
 

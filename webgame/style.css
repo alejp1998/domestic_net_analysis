@@ -44,7 +44,13 @@ body {
 }
 
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   background: var(--bg);
   color: var(--text);
   display: flex;
@@ -147,7 +153,9 @@ body {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.1s, border-color 0.15s;
+  transition:
+    transform 0.1s,
+    border-color 0.15s;
 }
 
 .btn:hover {
@@ -173,6 +181,18 @@ body {
 .mode-btn.active {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 18%, var(--panel-2));
+}
+
+.map-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 12px;
+}
+.map-row .mode-btn {
+  flex: 1 1 auto;
+  padding: 7px 6px;
+  font-size: 12px;
 }
 
 .guide-tabs {

@@ -577,8 +577,13 @@
 
   // ---------------------------------------------------------------- wiring
   function wire() {
-    $id("map-sel").addEventListener("change", function () {
-      setMap(this.value);
+    document.querySelectorAll(".map-row [data-map]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        document.querySelectorAll(".map-row [data-map]").forEach(function (b) {
+          b.classList.toggle("active", b === btn);
+        });
+        setMap(btn.dataset.map);
+      });
     });
     $id("grid-res").addEventListener("input", function () {
       cellN = Number(this.value);

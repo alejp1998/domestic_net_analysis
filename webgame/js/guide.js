@@ -9,43 +9,43 @@
 
   function typeset() {
     if (window.MathJax && MathJax.typesetPromise) {
+      var ready =
+        MathJax.startup && MathJax.startup.promise
+          ? MathJax.startup.promise
+          : Promise.resolve();
       try {
-        MathJax.typesetPromise().catch(function () {});
+        ready
+          .then(function () {
+            return MathJax.typesetPromise();
+          })
+          .catch(function () {});
       } catch (e) {}
     }
   }
 
-  function wire() {
-    var modal = document.getElementById("guide-modal") || document.getElementById("guide");
-    if (!modal) return;
+  var modal = document.getElementById("guide-modal") || document.getElementById("guide");
+  if (!modal) return;
 
-    var tabs = Array.prototype.slice.call(modal.querySelectorAll(".guide-tab"));
-    if (tabs.length) {
-      tabs.forEach(function (tab) {
-        tab.addEventListener("click", function () {
-          tabs.forEach(function (t) {
-            t.classList.toggle("active", t === tab);
-          });
-          var panels = modal.querySelectorAll(".guide-panel");
-          panels.forEach(function (p) {
-            p.classList.toggle("hidden", p.dataset.tab !== tab.dataset.tab);
-          });
-          typeset();
+  var tabs = modal.querySelectorAll(".guide-tab");
+  if (tabs.length) {
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        tabs.forEach(function (t) {
+          t.classList.toggle("active", t === tab);
         });
+        var panels = modal.querySelectorAll(".guide-panel");
+        panels.forEach(function (p) {
+          p.classList.toggle("hidden", p.dataset.tab !== tab.dataset.tab);
+        });
+        typeset();
       });
-    }
-
-    // typeset whenever the modal becomes visible (any opener, any close)
-    if (typeof MutationObserver !== "undefined") {
-      new MutationObserver(function () {
-        if (!modal.classList.contains("hidden")) typeset();
-      }).observe(modal, { attributes: true, attributeFilter: ["class"] });
-    }
+    });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", wire);
-  } else {
-    wire();
+  // typeset whenever the modal becomes visible (any opener, any close)
+  if (typeof MutationObserver !== "undefined") {
+    new MutationObserver(function () {
+      if (!modal.classList.contains("hidden")) typeset();
+    }).observe(modal, { attributes: true, attributeFilter: ["class"] });
   }
 })();

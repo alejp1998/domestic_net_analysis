@@ -185,9 +185,27 @@
     var ch = (b.maxY - b.minY) / cellN;
     for (var gy = 0; gy < cellN; gy++) {
       for (var gx = 0; gx < cellN; gx++) {
-        var cx = b.minX + (gx + 0.5) * cw;
-        var cy = b.minY + (gy + 0.5) * ch;
-        var ri = roomAt(cx, cy);
+        var cx0 = b.minX + gx * cw;
+        var cy0 = b.minY + gy * ch;
+        var cx = cx0 + cw / 2;
+        var cy = cy0 + ch / 2;
+        // corner-aware membership: a cell belongs to the room that contains
+        // its center or most corners — avoids white slivers along room edges
+        // where no cell CENTER lands inside the polygon
+        var ri = -1;
+        var best = 0;
+        for (var r = 0; r < rooms.length; r++) {
+          var cnt = 0;
+          if (pointInPoly(cx, cy, rooms[r].poly)) cnt += 2;
+          if (pointInPoly(cx0, cy0, rooms[r].poly)) cnt++;
+          if (pointInPoly(cx0 + cw, cy0, rooms[r].poly)) cnt++;
+          if (pointInPoly(cx0, cy0 + ch, rooms[r].poly)) cnt++;
+          if (pointInPoly(cx0 + cw, cy0 + ch, rooms[r].poly)) cnt++;
+          if (cnt > best) {
+            best = cnt;
+            ri = r;
+          }
+        }
         if (ri !== -1) {
           var cell = {
             gx: gx,
@@ -343,35 +361,95 @@
     heatMax = Math.max.apply(null, dBmVals) + 2;
 
     // discrete subdivision model: per-cell heat + grid-aligned walls
-    cells.forEach(function (c) {
-      var v =
-        mode === "meas"
-          ? rooms[c.roomIdx].dBm
-          : cellDbm(c, dbPerM(), dbPerWall());
-      var tl = toPx(c.x, c.y);
-      var br = toPx(c.x + c.w, c.y + c.h);
-      ctx.fillStyle = heatColor(v, p);
-      ctx.fillRect(tl[0], tl[1], br[0] - tl[0], br[1] - tl[1]);
+    // heatmap: clip each room's cells to its polygon so fills never bleed
+    // past the walls (cell rects extend beyond the poly by half a cell)
+    rooms.forEach(function (r, ri) {
+      ctx.save();
+      ctx.beginPath();
+      r.poly.forEach(function (pt, k) {
+        var px = toPx(pt[0], pt[1]);
+        if (k === 0) ctx.moveTo(px[0], px[1]);
+        else ctx.lineTo(px[0], px[1]);
+      });
+      ctx.closePath();
+      ctx.clip();
+      cells.forEach(function (c) {
+        if (c.roomIdx !== ri) return;
+        var v =
+          mode === "meas"
+            ? rooms[c.roomIdx].dBm
+            : cellDbm(c, dbPerM(), dbPerWall());
+        var tl = toPx(c.x, c.y);
+        var br = toPx(c.x + c.w, c.y + c.h);
+        ctx.fillStyle = heatColor(v, p);
+        ctx.fillRect(tl[0], tl[1], br[0] - tl[0], br[1] - tl[1]);
+      });
+      ctx.restore();
     });
 
-    // walls: drawn on shared cell edges between different rooms — borders meet
-    ctx.strokeStyle = p.wallEdge;
+    // walls from the room POLYGONS: shared edges are thin interior walls,
+    // outward-facing edges are the thick house outline (cells only fill)
     ctx.lineWidth = 1.5;
+    ctx.strokeStyle = p.wallEdge;
     ctx.beginPath();
-    cells.forEach(function (c) {
-      var right = cellMap[c.gx + 1 + "," + c.gy];
-      var down = cellMap[c.gx + "," + (c.gy + 1)];
-      var tl = toPx(c.x, c.y);
-      var tr = toPx(c.x + c.w, c.y);
-      var bl = toPx(c.x, c.y + c.h);
-      var br = toPx(c.x + c.w, c.y + c.h);
-      if (!right || right.roomIdx !== c.roomIdx) {
-        ctx.moveTo(tr[0], tr[1]);
-        ctx.lineTo(br[0], br[1]);
+    rooms.forEach(function (r) {
+      var poly = r.poly;
+      for (var e = 0; e < poly.length; e++) {
+        var a = poly[e];
+        var b = poly[(e + 1) % poly.length];
+        var mx = (a[0] + b[0]) / 2;
+        var my = (a[1] + b[1]) / 2;
+        var dx = b[0] - a[0];
+        var dy = b[1] - a[1];
+        var nx = -dy;
+        var ny = dx;
+        var nl = Math.hypot(nx, ny) || 1;
+        nx /= nl;
+        ny /= nl;
+        var in1 = rooms.some(function (rr) {
+          return pointInPoly(mx + nx * 0.03, my + ny * 0.03, rr.poly);
+        });
+        var in2 = rooms.some(function (rr) {
+          return pointInPoly(mx - nx * 0.03, my - ny * 0.03, rr.poly);
+        });
+        var p1 = toPx(a[0], a[1]);
+        var p2 = toPx(b[0], b[1]);
+        if (in1 && in2) {
+          ctx.moveTo(p1[0], p1[1]);
+          ctx.lineTo(p2[0], p2[1]);
+        }
       }
-      if (!down || down.roomIdx !== c.roomIdx) {
-        ctx.moveTo(bl[0], bl[1]);
-        ctx.lineTo(br[0], br[1]);
+    });
+    ctx.stroke();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = p.text;
+    ctx.beginPath();
+    rooms.forEach(function (r) {
+      var poly = r.poly;
+      for (var e = 0; e < poly.length; e++) {
+        var a = poly[e];
+        var b = poly[(e + 1) % poly.length];
+        var mx = (a[0] + b[0]) / 2;
+        var my = (a[1] + b[1]) / 2;
+        var dx = b[0] - a[0];
+        var dy = b[1] - a[1];
+        var nx = -dy;
+        var ny = dx;
+        var nl = Math.hypot(nx, ny) || 1;
+        nx /= nl;
+        ny /= nl;
+        var in1 = rooms.some(function (rr) {
+          return pointInPoly(mx + nx * 0.03, my + ny * 0.03, rr.poly);
+        });
+        var in2 = rooms.some(function (rr) {
+          return pointInPoly(mx - nx * 0.03, my - ny * 0.03, rr.poly);
+        });
+        if (in1 !== in2) {
+          var p1 = toPx(a[0], a[1]);
+          var p2 = toPx(b[0], b[1]);
+          ctx.moveTo(p1[0], p1[1]);
+          ctx.lineTo(p2[0], p2[1]);
+        }
       }
     });
     ctx.stroke();
@@ -549,6 +627,10 @@
   }
 
   function updateDrag(pos) {
+    // keep sources inside the house: the model predicts indoor paths and
+    // counts interior walls only — an outdoor source would under-count
+    pos.x = Math.max(B.minX, Math.min(B.maxX, pos.x));
+    pos.y = Math.max(B.minY, Math.min(B.maxY, pos.y));
     if (drag === "router") router = pos;
     else rep = pos;
     render();

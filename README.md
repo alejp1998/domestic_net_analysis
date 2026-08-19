@@ -41,6 +41,11 @@ ruff check .
   committed scan CSV is partial (no house-SSID rows), so the canonical
   per-room means from the executed notebook are used automatically.
 
+### 🖼️ Screenshots
+
+| Measured heatmap | Optimal placement |
+|---|---|
+| ![Measured heatmap](docs/webgame_meas.png) | ![Optimal placement](docs/webgame_opt.png) |
 ## 🎮 Interactive web edition
 
 `webgame/` — an interactive floor-plan simulator:

@@ -142,6 +142,44 @@ def tile_real_house(rooms_in):
                 p[1] = snap(p[1], 0.01)
         if moved == 0:
             break
+    # final relaxation: facing edges of adjacent rooms converge to ONE
+    # gridline. Fixes merge-chain drift (e.g. Pasillo-3 -9.18 vs
+    # Habitacion1-1 -9.17): repeatedly average each close pair and snap to a
+    # 0.02 grid until stable, so every wall truly meets its neighbours.
+    def box(r):
+        xs = [p[0] for p in r["poly"]]
+        ys = [p[1] for p in r["poly"]]
+        return min(xs), min(ys), max(xs), max(ys)
+    for _ in range(6):
+        moved = 0
+        for i in range(len(out)):
+            a = out[i]
+            ax0, ay0, ax1, ay1 = box(a)
+            for j in range(i + 1, len(out)):
+                b = out[j]
+                bx0, by0, bx1, by1 = box(b)
+                if ay0 < by1 and ay1 > by0 and abs(ax1 - bx0) <= 0.03:
+                    m = snap((ax1 + bx0) / 2, 0.02)
+                    a["poly"][1][0] = a["poly"][2][0] = m
+                    b["poly"][0][0] = b["poly"][3][0] = m
+                    moved += 1
+                if ay0 < by1 and ay1 > by0 and abs(ax0 - bx1) <= 0.03:
+                    m = snap((ax0 + bx1) / 2, 0.02)
+                    a["poly"][0][0] = a["poly"][3][0] = m
+                    b["poly"][1][0] = b["poly"][2][0] = m
+                    moved += 1
+                if ax0 < bx1 and ax1 > bx0 and abs(ay1 - by0) <= 0.03:
+                    m = snap((ay1 + by0) / 2, 0.02)
+                    a["poly"][2][1] = a["poly"][3][1] = m
+                    b["poly"][0][1] = b["poly"][1][1] = m
+                    moved += 1
+                if ax0 < bx1 and ax1 > bx0 and abs(ay0 - by1) <= 0.03:
+                    m = snap((ay0 + by1) / 2, 0.02)
+                    a["poly"][0][1] = a["poly"][1][1] = m
+                    b["poly"][2][1] = b["poly"][3][1] = m
+                    moved += 1
+        if moved == 0:
+            break
     return out
 
 def walls_matrix(rooms, zones):

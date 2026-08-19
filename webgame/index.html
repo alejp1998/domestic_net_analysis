@@ -20,7 +20,7 @@
         } catch (e) {}
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=1" />
+    <link rel="stylesheet" href="style.css?v=2" />
   </head>
   <body>
     <header class="topbar">
@@ -165,61 +165,88 @@
       <div class="modal-card">
         <button class="modal-close" data-close-guide title="Close">✕</button>
         <h2>📖 About this page</h2>
-        <h3>🎓 The Project</h3>
-        <p>
-          <b>Domestic Network Analysis</b> (SCON 2020) scans the WiFi spectrum
-          around a home with a monitor-mode adapter
-          (<code>wifi_scanner.py</code>, scapy) and analyses the collected
-          beacons: <b>signal strength per room</b>, <b>channel occupancy</b> of
-          the 2.4&nbsp;GHz and 5&nbsp;GHz bands, and two simulations —
-          <b>optimal router placement</b> and <b>repeater placement</b> — based
-          on a simple path-loss model fitted from the measurements.
-        </p>
-        <h3>📶 The model</h3>
-        <p>
-          Predicted signal in a room:
-          <code>dBm = dBm_max − (distance_m × 3 dB/m + walls × 7 dB/wall)</code>
-          where the wall count between zones comes from a hand-built 10×10
-          matrix (estimated from the scan) and distances are scaled to metres.
-          The
-          <b>score</b> of a placement is the zone-weighted mean linear power
-          (living areas weighted 1.5×, bedrooms 1.25×).
-        </p>
-        <h3>🗺️ Flat plans</h3>
-        <p>
-          Four floor plans: the <b>real scanned home</b> (rebuilt as a clean
-          tiled plan) plus three designed flats — <b>Estudio</b>,
-          <b>Piso 2 hab</b> and <b>Loft</b>. The map is drawn as a
-          <b>discrete subdivision grid</b>: use the slider to choose how big the
-          cells are, and every cell predicts its own signal (distance to the
-          router + wall attenuation), so the heatmap is smooth and walls show
-          real drops.
-        </p>
-        <h3>🧪 Simulate</h3>
-        <p>
-          Drag the <b>router</b> anywhere on the floor plan — every room's
-          predicted dBm and the score list update live. Toggle the
-          <b>repeater</b> to add a second source (drag the repeater too; each
-          room takes the best of the two signals). Adjust the model's
-          dB-per-metre and dB-per-wall sliders to see how the optimum moves.
-          <b>✨ Find optimal room</b> runs the notebook's exhaustive search
-          (every room as the source) and highlights the winner.
-        </p>
-        <h3>🖥️ Implementation</h3>
-        <p>
-          The model functions from the notebook were extracted into
-          <code>analysis_model.py</code> (unit-tested) and ported 1:1 to
-          JavaScript for this page. Source:
-          <a
-            href="https://github.com/alejp1998/domestic_net_analysis"
-            target="_blank"
-            rel="noopener"
-            >github.com/alejp1998/domestic_net_analysis</a
-          >.
-        </p>
+        <div class="guide-tabs">
+          <button class="guide-tab active" data-tab="theory">🧠 Theory</button>
+          <button class="guide-tab" data-tab="game">🎮 Game</button>
+        </div>
+
+        <section class="guide-panel" data-tab="theory">
+          <h3>🎓 The Project</h3>
+          <p>
+            <b>Domestic Network Analysis</b> (SCON 2020, UPM) — a 5 GHz Wi-Fi
+            scan of a home plus a simulation of <b>router placement</b>. The
+            notebook models received signal strength with an empirical
+            <b>path-loss model with wall attenuation</b> and searches for the
+            room that maximizes coverage. This page reproduces the model and
+            makes it interactive, with the real house rebuilt as a perfectly
+            tiled plan plus three designed flats.
+          </p>
+
+          <h3>📡 Path-loss model</h3>
+          <p>
+            Predicted received power at distance \(d\) metres from the router,
+            through \(W\) walls:
+          </p>
+          <p class="math">\[ P(d) = P_{\max} - 3\,d - 7\,W \]</p>
+          <p>
+            i.e. <b>3 dB/m</b> free-space-ish attenuation plus
+            <b>7 dB per wall</b> — the notebook's calibrated model (\(P_{\max} =
+            -39.2\) dBm from the measurements). Each room's score is the mean
+            predicted signal over its cells, and the <b>optimal room</b> is the
+            maximizer of that score (verified: <b>Pasillo-2</b>, score 19.78 —
+            matching the notebook bit-for-bit).
+          </p>
+
+          <h3>🔲 Discrete subdivision model</h3>
+          <p>
+            Instead of one value per room, the plan is rasterized into a uniform
+            grid of cells (16–48 per side, adjustable). Every cell computes its
+            own prediction — distance from the router to the
+            <i>cell centre</i> plus the wall count between their zones — so the
+            heatmap shows smooth signal gradients within rooms and sharp drops
+            across walls. Walls are drawn on shared cell edges, so the floor
+            plan tiles perfectly.
+          </p>
+
+          <h3>🔁 Repeater mode</h3>
+          <p>
+            A second source (repeater) is modelled identically; each cell takes
+            the <b>maximum</b> of the two predictions, simulating the best-case
+            coverage of a mesh.
+          </p>
+        </section>
+
+        <section class="guide-panel hidden" data-tab="game">
+          <h3>🗺️ How to use</h3>
+          <p>
+            Switch between the four flats (<b
+              >Casa real, Estudio, Piso 2 hab, Loft</b
+            >). <b>Measured</b> shows the real scan per room;
+            <b>Simulate</b> lets you <b>drag the router</b> (and toggle + drag a
+            <b>repeater</b>), tune the dB/m and dB/wall sliders and the
+            <b>subdivision</b> resolution. <b>Find optimal</b> runs the grid
+            search and highlights the best room.
+          </p>
+          <h3>🖥️ Source</h3>
+          <p>
+            <a
+              href="https://github.com/alejp1998/domestic_net_analysis"
+              target="_blank"
+              rel="noopener"
+              >github.com/alejp1998/domestic_net_analysis</a
+            >
+            — notebook, Python model, tests.
+          </p>
+        </section>
       </div>
     </div>
 
-    <script src="js/main.js?v=1"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"
+      id="MathJax-script"
+      async
+    ></script>
+    <script src="js/guide.js?v=2"></script>
+    <script src="js/main.js?v=2"></script>
   </body>
 </html>

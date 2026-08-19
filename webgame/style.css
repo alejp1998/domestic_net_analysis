@@ -175,6 +175,37 @@ body {
   background: color-mix(in srgb, var(--primary) 18%, var(--panel-2));
 }
 
+.guide-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+.guide-tab {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.guide-tab.active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 18%, var(--panel-2));
+}
+.guide-panel h3 {
+  margin-top: 18px;
+}
+.guide-panel p {
+  line-height: 1.6;
+}
+.guide-panel .math {
+  text-align: center;
+  padding: 8px 0;
+}
+
 .cockpit {
   flex: 1;
   display: grid;

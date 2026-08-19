@@ -29,92 +29,144 @@ def rect_room(name, zone, x0, y0, x1, y1, dbm):
         "name": name,
         "zone": zone,
         "x0": x0, "y0": y0, "x1": x1, "y1": y1,
+        "poly": [[x0, y0], [x1, y0], [x1, y1], [x0, y1]],
         "cx": (x0 + x1) / 2, "cy": (y0 + y1) / 2,
         "dBm": dbm,
     }
 
 
 def tile_real_house(rooms_in):
-    """Rebuild the real rooms as a gap-free tiling.
-
-    Strategy: snap every room edge to a common grid, then assign every grid
-    cell (between consecutive grid lines) to the room whose original polygon
-    contains its centre (gaps fall back to the nearest room centre). The
-    resulting room polygons are outlines of their cells — adjacent rooms share
-    exact edges by construction.
     """
-    def contains(poly, x, y):
-        inside = False
-        j = len(poly) - 1
-        for i in range(len(poly)):
-            xi, yi = poly[i]
-            xj, yj = poly[j]
-            if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
-                inside = not inside
-            j = i
-        return inside
+    Close the empty gaps between the original room rectangles and make facing
+    walls meet, while preserving the original design (no re-rasterisation).
 
+    Every room is a rectangle (bbox of its polygon). Adjacent rooms that face
+    each other with a small gap (or tiny overlap) get their facing edges moved
+    to the midpoint of the two — so the edges become identical and walls meet
+    exactly, with sub-0.04-unit adjustments invisible at render scale.
+    """
     rooms = []
     for r in rooms_in:
         xs = [p[0] for p in r["poly"]]
         ys = [p[1] for p in r["poly"]]
         rooms.append({
             "name": r["name"], "zone": r["zone"],
-            "x0": snap(min(xs)), "y0": snap(min(ys)),
-            "x1": snap(max(xs)), "y1": snap(max(ys)),
+            "x0": min(xs), "y0": min(ys),
+            "x1": max(xs), "y1": max(ys),
             "poly": r["poly"], "dBm": r["dBm"],
             "cx": (min(xs) + max(xs)) / 2, "cy": (min(ys) + max(ys)) / 2,
         })
 
-    xs = sorted({v for r in rooms for v in (r["x0"], r["x1"])})
-    ys = sorted({v for r in rooms for v in (r["y0"], r["y1"])})
-    gx = [(xs[i], xs[i + 1]) for i in range(len(xs) - 1)]
-    gy = [(ys[i], ys[i + 1]) for i in range(len(ys) - 1)]
+    eps = 0.08  # merge facing edges closer than this
 
-    # assign every grid cell to a room
-    grid = {}
-    for j, (y0, y1) in enumerate(gy):
-        for i, (x0, x1) in enumerate(gx):
-            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-            hit = None
-            for r in rooms:
-                if contains(r["poly"], cx, cy):
-                    hit = r
-                    break
-            if hit is None:  # gap cell -> nearest room centre
-                hit = min(rooms, key=lambda r: (r["cx"] - cx) ** 2 + (r["cy"] - cy) ** 2)
-            grid[(i, j)] = hit
+    def x_overlap(a, b):
+        return a["y0"] < b["y1"] and a["y1"] > b["y0"]
 
-    # rebuild each room as the outline of its cells
+    def y_overlap(a, b):
+        return a["x0"] < b["x1"] and a["x1"] > b["x0"]
+
+    for _ in range(3):  # iterate until stable
+        moved = 0
+        for i in range(len(rooms)):
+            a = rooms[i]
+            for j in range(i + 1, len(rooms)):
+                b = rooms[j]
+                if x_overlap(a, b) and abs(a["x1"] - b["x0"]) <= eps:
+                    m = (a["x1"] + b["x0"]) / 2
+                    a["x1"], b["x0"] = m, m
+                    moved += 1
+                if x_overlap(a, b) and abs(a["x0"] - b["x1"]) <= eps:
+                    m = (a["x0"] + b["x1"]) / 2
+                    a["x0"], b["x1"] = m, m
+                    moved += 1
+                if y_overlap(a, b) and abs(a["y1"] - b["y0"]) <= eps:
+                    m = (a["y1"] + b["y0"]) / 2
+                    a["y1"], b["y0"] = m, m
+                    moved += 1
+                if y_overlap(a, b) and abs(a["y0"] - b["y1"]) <= eps:
+                    m = (a["y0"] + b["y1"]) / 2
+                    a["y0"], b["y1"] = m, m
+                    moved += 1
+        if moved == 0:
+            break
+
     out = []
     for r in rooms:
-        cells = [k for k, v in grid.items() if v["name"] == r["name"]]
-        if not cells:
-            continue
-        x0 = min(xs[i] for i, _ in cells)
-        x1 = max(xs[i + 1] for i, _ in cells)
-        y0 = min(ys[j] for _, j in cells)
-        y1 = max(ys[j + 1] for _, j in cells)
-        out.append(rect_room(r["name"], r["zone"], x0, y0, x1, y1, r["dBm"]))
+        # final snap to a 0.01 grid: merged midpoints land on the SAME
+        # gridline -> facing edges are exactly equal, zero gaps remain
+        x0, y0 = snap(r["x0"], 0.01), snap(r["y0"], 0.01)
+        x1, y1 = snap(r["x1"], 0.01), snap(r["y1"], 0.01)
+        r["x0"], r["y0"], r["x1"], r["y1"] = x0, y0, x1, y1
+        out.append({
+            "name": r["name"], "zone": r["zone"],
+            "poly": [[x0, y0], [x1, y0], [x1, y1], [x0, y1]],
+            "cx": (x0 + x1) / 2,
+            "cy": (y0 + y1) / 2,
+            "dBm": r["dBm"],
+        })
+    # alternate merge + snap passes: reunite split edges, then snap the
+    # midpoints back onto the gridline — converges to zero gaps
+    for _ in range(4):
+        moved = 0
+        for i in range(len(out)):
+            a = out[i]
+            for j in range(i + 1, len(out)):
+                b = out[j]
+                axs = [p[0] for p in a["poly"]]; ays = [p[1] for p in a["poly"]]
+                bxs = [p[0] for p in b["poly"]]; bys = [p[1] for p in b["poly"]]
+                ax0, ay0, ax1, ay1 = min(axs), min(ays), max(axs), max(ays)
+                bx0, by0, bx1, by1 = min(bxs), min(bys), max(bxs), max(bys)
+                if ay0 < by1 and ay1 > by0 and abs(ax1 - bx0) <= 0.015:
+                    m = (ax1 + bx0) / 2
+                    a["poly"][1][0] = a["poly"][2][0] = m
+                    b["poly"][0][0] = b["poly"][3][0] = m
+                    moved += 1
+                if ay0 < by1 and ay1 > by0 and abs(ax0 - bx1) <= 0.015:
+                    m = (ax0 + bx1) / 2
+                    a["poly"][0][0] = a["poly"][3][0] = m
+                    b["poly"][1][0] = b["poly"][2][0] = m
+                    moved += 1
+                if ax0 < bx1 and ax1 > bx0 and abs(ay1 - by0) <= 0.015:
+                    m = (ay1 + by0) / 2
+                    a["poly"][2][1] = a["poly"][3][1] = m
+                    b["poly"][0][1] = b["poly"][1][1] = m
+                    moved += 1
+                if ax0 < bx1 and ax1 > bx0 and abs(ay0 - by1) <= 0.015:
+                    m = (ay0 + by1) / 2
+                    a["poly"][0][1] = a["poly"][1][1] = m
+                    b["poly"][2][1] = b["poly"][3][1] = m
+                    moved += 1
+        for r in out:
+            for p in r["poly"]:
+                p[0] = snap(p[0], 0.01)
+                p[1] = snap(p[1], 0.01)
+        if moved == 0:
+            break
     return out
-
 
 def walls_matrix(rooms, zones):
     """wallsBT[z1][z2] = number of shared wall segments between zones."""
+    def box(r):
+        xs = [p[0] for p in r["poly"]]
+        ys = [p[1] for p in r["poly"]]
+        return min(xs), min(ys), max(xs), max(ys)
+
     n = len(zones)
     w = [[0] * n for _ in range(n)]
     for a in rooms:
         for b in rooms:
             if a is b or a["zone"] == b["zone"]:
                 continue
+            ax0, ay0, ax1, ay1 = box(a)
+            bx0, by0, bx1, by1 = box(b)
             # shared vertical edge
-            if abs(a["x1"] - b["x0"]) < 1e-9 or abs(b["x1"] - a["x0"]) < 1e-9:
-                over = max(0.0, min(a["y1"], b["y1"]) - max(a["y0"], b["y0"]))
+            if abs(ax1 - bx0) < 1e-9 or abs(bx1 - ax0) < 1e-9:
+                over = max(0.0, min(ay1, by1) - max(ay0, by0))
                 if over > 1e-6:
                     w[a["zone"]][b["zone"]] += 1
             # shared horizontal edge
-            if abs(a["y1"] - b["y0"]) < 1e-9 or abs(b["y1"] - a["y0"]) < 1e-9:
-                over = max(0.0, min(a["x1"], b["x1"]) - max(a["x0"], b["x0"]))
+            if abs(ay1 - by0) < 1e-9 or abs(by1 - ay0) < 1e-9:
+                over = max(0.0, min(ax1, bx1) - max(ax0, bx0))
                 if over > 1e-6:
                     w[a["zone"]][b["zone"]] += 1
     for i in range(n):
@@ -194,8 +246,7 @@ def build():
                 {
                     "name": r["name"],
                     "zone": zidx[r["zone"]],
-                    "poly": [[r["x0"], r["y0"]], [r["x1"], r["y0"]],
-                             [r["x1"], r["y1"]], [r["x0"], r["y1"]]],
+                    "poly": r["poly"],
                     "cx": r["cx"], "cy": r["cy"],
                     "dBm": r["dBm"],
                 }

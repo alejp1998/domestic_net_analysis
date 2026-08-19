@@ -86,6 +86,26 @@
             </button>
             <button class="btn mode-btn" id="mode-sim">🧪 Simulate</button>
           </div>
+          <label class="slider-row"
+            >Flat plan
+            <select id="map-sel">
+              <option value="casa">🏠 Casa real</option>
+              <option value="estudio">🏢 Estudio</option>
+              <option value="piso">🏡 Piso 2 hab</option>
+              <option value="loft">🏗️ Loft</option>
+            </select></label
+          >
+          <label class="slider-row"
+            >Subdivision
+            <input
+              id="grid-res"
+              type="range"
+              min="16"
+              max="48"
+              step="8"
+              value="32"
+            /><b id="grid-res-v">32</b></label
+          >
           <div id="sim-options" class="hidden">
             <label class="toggle-row"
               ><input type="checkbox" id="rep-toggle" />
@@ -164,6 +184,16 @@
           The
           <b>score</b> of a placement is the zone-weighted mean linear power
           (living areas weighted 1.5×, bedrooms 1.25×).
+        </p>
+        <h3>🗺️ Flat plans</h3>
+        <p>
+          Four floor plans: the <b>real scanned home</b> (rebuilt as a clean
+          tiled plan) plus three designed flats — <b>Estudio</b>,
+          <b>Piso 2 hab</b> and <b>Loft</b>. The map is drawn as a
+          <b>discrete subdivision grid</b>: use the slider to choose how big the
+          cells are, and every cell predicts its own signal (distance to the
+          router + wall attenuation), so the heatmap is smooth and walls show
+          real drops.
         </p>
         <h3>🧪 Simulate</h3>
         <p>

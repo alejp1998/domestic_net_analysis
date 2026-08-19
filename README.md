@@ -45,9 +45,14 @@ ruff check .
 
 `webgame/` — an interactive floor-plan simulator:
 
+- **🗺️ 4 flat plans** — the real scanned home (rebuilt as a perfectly tiled,
+  gap-free plan) plus three designed flats: **Estudio**, **Piso 2 hab**, **Loft**
+- **🔲 Discrete subdivision model** — a slider chooses the cell size; every
+  cell predicts its own signal (distance to the router + wall attenuation),
+  so heatmaps are smooth and walls are grid-aligned and always meet
 - **📡 Measured** — the real scan heatmap per room
 - **🧪 Simulate** — **drag the router** (and a **repeater**) anywhere; every
-  room's predicted dBm, the score ranking and the heatmap recompute live;
+  cell's predicted dBm, the score ranking and the heatmap recompute live;
   tune the model's dB/metre and dB/wall sliders
 - **✨ Find optimal room** — runs the notebook's exhaustive search
 

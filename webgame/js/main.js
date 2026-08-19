@@ -164,6 +164,65 @@
     });
   }
 
+  // --- discrete subdivision model ---
+  var cells = []; // {x, y, w, h, roomIdx} in house units
+  var cellN = 32;
+
+  function roomAt(x, y) {
+    for (var i = 0; i < rooms.length; i++) {
+      if (pointInPoly(x, y, rooms[i].poly)) return i;
+    }
+    return -1;
+  }
+
+  var cellMap = {};
+  function buildCells() {
+    cells = [];
+    cellMap = {};
+    var b = B;
+    if (!b) return;
+    var cw = (b.maxX - b.minX) / cellN;
+    var ch = (b.maxY - b.minY) / cellN;
+    for (var gy = 0; gy < cellN; gy++) {
+      for (var gx = 0; gx < cellN; gx++) {
+        var cx = b.minX + (gx + 0.5) * cw;
+        var cy = b.minY + (gy + 0.5) * ch;
+        var ri = roomAt(cx, cy);
+        if (ri !== -1) {
+          var cell = {
+            gx: gx,
+            gy: gy,
+            x: b.minX + gx * cw,
+            y: b.minY + gy * ch,
+            w: cw,
+            h: ch,
+            roomIdx: ri,
+          };
+          cells.push(cell);
+          cellMap[gx + "," + gy] = cell;
+        }
+      }
+    }
+  }
+
+  function cellDbm(c, dbPerM, dbPerWall) {
+    var cxc = c.x + c.w / 2;
+    var cyc = c.y + c.h / 2;
+    var z = zoneAt(router.x, router.y);
+    var d = Math.hypot(router.x - cxc, router.y - cyc);
+    var dbm =
+      dbmMax - (d * dbPerM + WALLS_BT[z][rooms[c.roomIdx].zone] * dbPerWall);
+    if (repeaterOn && rep) {
+      var zr = zoneAt(rep.x, rep.y);
+      var dr = Math.hypot(rep.x - cxc, rep.y - cyc);
+      var dbmr =
+        dbmMax -
+        (dr * dbPerM + WALLS_BT[zr][rooms[c.roomIdx].zone] * dbPerWall);
+      dbm = Math.max(dbm, dbmr);
+    }
+    return dbm;
+  }
+
   function predictedDbm(dbPerM, dbPerWall) {
     var r = predictFrom(router, dbPerM, dbPerWall);
     if (repeaterOn && rep) {
@@ -283,29 +342,54 @@
     heatMin = Math.min.apply(null, dBmVals) - 2;
     heatMax = Math.max.apply(null, dBmVals) + 2;
 
-    // rooms
-    rooms.forEach(function (r, i) {
-      var pts = r.poly.map(function (pp) {
-        return toPx(pp[0], pp[1]);
-      });
-      ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (var k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0], pts[k][1]);
-      ctx.closePath();
-      ctx.fillStyle = heatColor(dbms[i], p);
-      ctx.fill();
-      ctx.strokeStyle = p.wallEdge;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+    // discrete subdivision model: per-cell heat + grid-aligned walls
+    cells.forEach(function (c) {
+      var v =
+        mode === "meas"
+          ? rooms[c.roomIdx].dBm
+          : cellDbm(c, dbPerM(), dbPerWall());
+      var tl = toPx(c.x, c.y);
+      var br = toPx(c.x + c.w, c.y + c.h);
+      ctx.fillStyle = heatColor(v, p);
+      ctx.fillRect(tl[0], tl[1], br[0] - tl[0], br[1] - tl[1]);
+    });
 
-      // optimal highlight
+    // walls: drawn on shared cell edges between different rooms — borders meet
+    ctx.strokeStyle = p.wallEdge;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    cells.forEach(function (c) {
+      var right = cellMap[c.gx + 1 + "," + c.gy];
+      var down = cellMap[c.gx + "," + (c.gy + 1)];
+      var tl = toPx(c.x, c.y);
+      var tr = toPx(c.x + c.w, c.y);
+      var bl = toPx(c.x, c.y + c.h);
+      var br = toPx(c.x + c.w, c.y + c.h);
+      if (!right || right.roomIdx !== c.roomIdx) {
+        ctx.moveTo(tr[0], tr[1]);
+        ctx.lineTo(br[0], br[1]);
+      }
+      if (!down || down.roomIdx !== c.roomIdx) {
+        ctx.moveTo(bl[0], bl[1]);
+        ctx.lineTo(br[0], br[1]);
+      }
+    });
+    ctx.stroke();
+
+    // room labels + per-room dBm + optimal highlight (on top of the cells)
+    rooms.forEach(function (r, i) {
       if (optimalName === r.name) {
+        var pts = r.poly.map(function (pp) {
+          return toPx(pp[0], pp[1]);
+        });
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (var k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0], pts[k][1]);
+        ctx.closePath();
         ctx.strokeStyle = p.optimal;
         ctx.lineWidth = 3.5;
         ctx.stroke();
       }
-
-      // label
       var cp = toPx(r.cx, r.cy);
       ctx.fillStyle = p.text;
       ctx.font = "600 11px system-ui";
@@ -493,6 +577,15 @@
 
   // ---------------------------------------------------------------- wiring
   function wire() {
+    $id("map-sel").addEventListener("change", function () {
+      setMap(this.value);
+    });
+    $id("grid-res").addEventListener("input", function () {
+      cellN = Number(this.value);
+      $id("grid-res-v").textContent = this.value;
+      buildCells();
+      render();
+    });
     $id("mode-meas").addEventListener("click", function () {
       mode = "meas";
       $id("mode-meas").classList.add("active");
@@ -608,15 +701,40 @@
   }
 
   // ---------------------------------------------------------------- init
-  fetch("data/rooms.json")
+  var MAPS = null;
+  var mapId = "casa";
+
+  function setMap(id) {
+    var m = MAPS.maps.find(function (x) {
+      return x.id === id;
+    });
+    if (!m) return;
+    mapId = id;
+    rooms = m.rooms;
+    WALLS_BT = m.wallsBT;
+    dbmMax = m.dbmMax;
+    B = bounds();
+    optimalName = null;
+    router = { x: rooms[0].cx, y: rooms[0].cy };
+    rep = null;
+    buildCells();
+    sizeCanvas();
+    render();
+    renderScores(
+      rooms.map(function (r) {
+        return r.dBm;
+      }),
+    );
+    log("🗺️ Map: " + m.label);
+  }
+
+  fetch("data/maps.json")
     .then(function (r) {
       return r.json();
     })
     .then(function (d) {
-      DATA = d;
-      rooms = d.rooms;
-      dbmMax = d.dbm_max;
-      router = { x: rooms[0].cx, y: rooms[0].cy };
+      MAPS = d;
+      setMap("casa");
       applyTheme();
       wireGuide();
       wire();

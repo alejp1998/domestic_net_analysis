@@ -381,8 +381,10 @@
             : cellDbm(c, dbPerM(), dbPerWall());
         var tl = toPx(c.x, c.y);
         var br = toPx(c.x + c.w, c.y + c.h);
+        // inflate 1px so adjacent cells overlap — kills hairline white gaps
+        // from sub-pixel rounding (the room clip keeps fills inside the poly)
         ctx.fillStyle = heatColor(v, p);
-        ctx.fillRect(tl[0], tl[1], br[0] - tl[0], br[1] - tl[1]);
+        ctx.fillRect(tl[0] - 1, tl[1] - 1, br[0] - tl[0] + 2, br[1] - tl[1] + 2);
       });
       ctx.restore();
     });
@@ -784,7 +786,6 @@
 
   function applyTheme() {
     var t = document.documentElement.getAttribute("data-theme");
-    $id("btn-theme").textContent = t === "dark" ? "☀️" : "🌙";
   }
 
   // ---------------------------------------------------------------- init

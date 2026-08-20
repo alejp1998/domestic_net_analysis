@@ -283,9 +283,83 @@ def tile_real_house(rooms_in):
                         if abs(p[1] - y0) < 1e-9:
                             p[1] = ys1
 
+    def zone_lines():
+        # collinear divisions within a zone converge to ONE line: stacked
+        # subrooms share their vertical divisions, side-by-side share
+        # horizontal ones (e.g. Salon-1's left edge == Salon-4's left edge).
+        for rs in by_zone.values():
+            if len(rs) < 2:
+                continue
+            for axis in (0, 1):
+                for side in (0, 1):
+                    edges = []
+                    for r in rs:
+                        poly = r["poly"]
+                        xs = [p[axis] for p in poly]
+                        edges.append((min(xs) if side == 0 else max(xs), r))
+                    edges.sort(key=lambda e: e[0])
+                    i = 0
+                    while i < len(edges):
+                        j = i
+                        while (
+                            j + 1 < len(edges)
+                            and edges[j + 1][0] - edges[i][0] <= 0.03
+                        ):
+                            j += 1
+                        if j > i:
+                            mean = sum(e[0] for e in edges[i : j + 1]) / (j - i + 1)
+                            for _, r in edges[i : j + 1]:
+                                poly = r["poly"]
+                                xs = [p[axis] for p in poly]
+                                v = min(xs) if side == 0 else max(xs)
+                                for p in poly:
+                                    if abs(p[axis] - v) < 1e-9:
+                                        p[axis] = mean
+                        i = j + 1
+
+    def perp_align():
+        # adjacent rooms share their perpendicular extents: side-by-side
+        # neighbours get equal top/bottom edges, stacked ones equal
+        # left/right edges (Lavabo1-1 as tall as Lavabo2-1; the Terraza
+        # block as long as the rooms under it).
+        for i in range(len(out)):
+            a = out[i]
+            ax0, ay0, ax1, ay1 = box(a)
+            for j in range(i + 1, len(out)):
+                b = out[j]
+                bx0, by0, bx1, by1 = box(b)
+                if ax0 < bx1 and ax1 > bx0:
+                    if abs(ax0 - bx0) <= 0.04:
+                        m = (ax0 + bx0) / 2
+                        for r, v in ((a, ax0), (b, bx0)):
+                            for p in r["poly"]:
+                                if abs(p[0] - v) < 1e-9:
+                                    p[0] = m
+                    if abs(ax1 - bx1) <= 0.04:
+                        m = (ax1 + bx1) / 2
+                        for r, v in ((a, ax1), (b, bx1)):
+                            for p in r["poly"]:
+                                if abs(p[0] - v) < 1e-9:
+                                    p[0] = m
+                if ay0 < by1 and ay1 > by0:
+                    if abs(ay0 - by0) <= 0.04:
+                        m = (ay0 + by0) / 2
+                        for r, v in ((a, ay0), (b, by0)):
+                            for p in r["poly"]:
+                                if abs(p[1] - v) < 1e-9:
+                                    p[1] = m
+                    if abs(ay1 - by1) <= 0.04:
+                        m = (ay1 + by1) / 2
+                        for r, v in ((a, ay1), (b, by1)):
+                            for p in r["poly"]:
+                                if abs(p[1] - v) < 1e-9:
+                                    p[1] = m
+
     for _ in range(4):
         align()
         conform()
+        zone_lines()
+        perp_align()
     for r in out:
         for p in r["poly"]:
             p[0] = snap(p[0], 0.02)

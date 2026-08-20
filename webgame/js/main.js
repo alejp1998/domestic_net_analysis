@@ -32,6 +32,7 @@
       floor: "#101a2c",
       wall: "#334155",
       wallEdge: "#475569",
+    zoneDash: "#818cf8",
       text: "#e2e8f0",
       muted: "#94a3b8",
       faint: "#64748b",
@@ -57,6 +58,7 @@
       floor: "#f8fafc",
       wall: "#cbd5e1",
       wallEdge: "#94a3b8",
+    zoneDash: "#6366f1",
       text: "#0f172a",
       muted: "#475569",
       faint: "#64748b",
@@ -485,6 +487,40 @@
     });
     ctx.stroke();
 
+
+    // dashed zone-group borders: the limits of each room group (block),
+    // so subroom groupings (3 Terraza, 6 Salon, ...) read as one area.
+    var byZ = {};
+    rooms.forEach(function (r) {
+      (byZ[r.zone] = byZ[r.zone] || []).push(r);
+    });
+    ctx.save();
+    ctx.setLineDash([7, 5]);
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = p.zoneDash;
+    var off = 4;
+    for (var z in byZ) {
+      var grp = byZ[z];
+      if (grp.length < 2) continue;
+      var gx0 = 1e9, gy0 = 1e9, gx1 = -1e9, gy1 = -1e9;
+      grp.forEach(function (r) {
+        r.poly.forEach(function (pt) {
+          if (pt[0] < gx0) gx0 = pt[0];
+          if (pt[1] < gy0) gy0 = pt[1];
+          if (pt[0] > gx1) gx1 = pt[0];
+          if (pt[1] > gy1) gy1 = pt[1];
+        });
+      });
+      var tl = toPx(gx0, gy1);
+      var br = toPx(gx1, gy0);
+      ctx.strokeRect(
+        tl[0] - off,
+        tl[1] - off,
+        br[0] - tl[0] + off * 2,
+        br[1] - tl[1] + off * 2,
+      );
+    }
+    ctx.restore();
     // room labels + per-room dBm + optimal highlight (on top of the cells)
     rooms.forEach(function (r, i) {
       if (optimalName === r.name) {

@@ -187,7 +187,7 @@ def tile_real_house(rooms_in):
     by_zone = defaultdict(list)
     for r in out:
         by_zone[r["zone"]].append(r)
-    for zone, rs in by_zone.items():
+    for rs in by_zone.values():
         if len(rs) < 2:
             continue
         xs0 = min(min(p[0] for p in r["poly"]) for r in rs)
@@ -220,7 +220,7 @@ def tile_real_house(rooms_in):
     # the block's extreme too, so shared edges sit ON the block boundary —
     # blocks stay perfect rectangles AND neighbours keep exact shared edges.
     def align():
-        for zone, rs in by_zone.items():
+        for rs in by_zone.values():
             if len(rs) < 2:
                 continue
             xs0 = min(min(p[0] for p in r["poly"]) for r in rs)

@@ -42,13 +42,16 @@
       repEdge: "#0e7490",
       optimal: "#fbbf24",
       heat: [
-        "#1e3a8a",
-        "#0c4a6e",
-        "#0e7490",
+        "#1e40af",
+        "#2563eb",
+        "#0ea5e9",
         "#06b6d4",
-        "#34d399",
-        "#fbbf24",
+        "#10b981",
+        "#84cc16",
+        "#eab308",
         "#f97316",
+        "#ef4444",
+        "#dc2626",
       ],
       panel: "#111c30",
       border: "rgba(255,255,255,0.1)",
@@ -68,13 +71,16 @@
       repEdge: "#0e7490",
       optimal: "#d97706",
       heat: [
-        "#dbeafe",
-        "#e0f2fe",
+        "#93c5fd",
         "#7dd3fc",
         "#22d3ee",
-        "#34d399",
-        "#fbbf24",
+        "#2dd4bf",
+        "#4ade80",
+        "#a3e635",
+        "#facc15",
+        "#fb923c",
         "#f97316",
+        "#ef4444",
       ],
       panel: "#ffffff",
       border: "rgba(15,23,42,0.12)",
@@ -453,14 +459,14 @@
       var b = r.poly[(e + 1) % r.poly.length];
       return [toPx(a[0], a[1]), toPx(b[0], b[1])];
     }
-    // solid: walls between groups
+    // solid: walls between groups (different zones)
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = p.wallEdge;
     ctx.beginPath();
     rooms.forEach(function (r) {
       for (var e = 0; e < r.poly.length; e++) {
         var nb = wallNeighbor(r, e);
-        if (nb && nb.zone === r.zone && r.name < nb.name) {
+        if (nb && nb.zone !== r.zone && r.name < nb.name) {
           var pp = edgePts(r, e);
           ctx.moveTo(pp[0][0], pp[0][1]);
           ctx.lineTo(pp[1][0], pp[1][1]);
@@ -468,13 +474,13 @@
       }
     });
     ctx.stroke();
-    // dashed: subroom divisions within a group
+    // dashed: subroom divisions within a group (same zone)
     ctx.setLineDash([7, 5]);
     ctx.beginPath();
     rooms.forEach(function (r) {
       for (var e = 0; e < r.poly.length; e++) {
         var nb = wallNeighbor(r, e);
-        if (nb && nb.zone !== r.zone && r.name < nb.name) {
+        if (nb && nb.zone === r.zone && r.name < nb.name) {
           var pp = edgePts(r, e);
           ctx.moveTo(pp[0][0], pp[0][1]);
           ctx.lineTo(pp[1][0], pp[1][1]);
@@ -564,26 +570,37 @@
   }
 
   function drawLegend(w, h, p) {
-    var lw = Math.min(230, w * 0.3);
+    var lw = Math.min(250, w * 0.32);
     var lx = w - lw - 14;
-    var ly = h - 44; // bottom pad — fully below the map outline (map ends at h-46)
+    var ly = h - 46; // bottom pad — fully below the map outline (map ends at h-46)
+    var lh = 46;
     ctx.fillStyle = p.panel + "dd";
     ctx.strokeStyle = p.border;
     ctx.beginPath();
-    ctx.roundRect(lx, ly, lw, 40, 8);
+    ctx.roundRect(lx, ly, lw, lh, 8);
     ctx.fill();
     ctx.stroke();
+    var barY = ly + 12;
+    var barH = 10;
     var grad = ctx.createLinearGradient(lx + 10, 0, lx + lw - 10, 0);
     for (var i = 0; i < p.heat.length; i++)
       grad.addColorStop(i / (p.heat.length - 1), p.heat[i]);
     ctx.fillStyle = grad;
-    ctx.fillRect(lx + 10, ly + 10, lw - 20, 10);
+    ctx.fillRect(lx + 10, barY, lw - 20, barH);
+    ctx.strokeStyle = p.faint;
+    ctx.strokeRect(lx + 10, barY, lw - 20, barH);
     ctx.fillStyle = p.muted;
-    ctx.font = "10px system-ui";
+    ctx.font = "9px system-ui";
+    ctx.textAlign = "center";
+    for (var k = 0; k < 5; k++) {
+      var v = Math.round(heatMin + ((heatMax - heatMin) * k) / 4);
+      var tx = lx + 10 + ((lw - 20) * k) / 4;
+      ctx.fillText(v, tx, barY + barH + 11);
+    }
     ctx.textAlign = "left";
-    ctx.fillText(Math.round(heatMax) + " dBm (best)", lx + 10, ly + 32);
+    ctx.fillText("worst", lx + 10, barY - 3);
     ctx.textAlign = "right";
-    ctx.fillText(Math.round(heatMin) + " dBm", lx + lw - 10, ly + 32);
+    ctx.fillText("best", lx + lw - 10, barY - 3);
   }
 
   // ---------------------------------------------------------------- scores

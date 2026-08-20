@@ -24,7 +24,7 @@
     [2, 2, 3, 1, 1, 1, 2, 3, 3, 0],
   ];
   var ZONE_WEIGHTS = { 5: 1.5, 1: 1.25, 2: 1.25, 3: 1.25, 4: 1.25 };
-  var SCALE_M = 2.6;
+  var UNIT_M = 4.45; // m per geojson unit (casa ~120 m²); 1.0 for the custom flat
 
   var PAL = {
     dark: {
@@ -32,7 +32,7 @@
       floor: "#101a2c",
       wall: "#334155",
       wallEdge: "#475569",
-    zoneDash: "#818cf8",
+      zoneDash: "#818cf8",
       text: "#e2e8f0",
       muted: "#94a3b8",
       faint: "#64748b",
@@ -61,7 +61,7 @@
       floor: "#f8fafc",
       wall: "#cbd5e1",
       wallEdge: "#94a3b8",
-    zoneDash: "#6366f1",
+      zoneDash: "#6366f1",
       text: "#0f172a",
       muted: "#475569",
       faint: "#64748b",
@@ -166,7 +166,9 @@
   function predictFrom(src, dbPerM, dbPerWall) {
     return rooms.map(function (r) {
       var rp = rayPath(src.x, src.y, r.cx, r.cy);
-      return dbmMax - ((rp.inside + rp.outside) * dbPerM + rp.walls * dbPerWall);
+      return (
+        dbmMax - ((rp.inside + rp.outside) * dbPerM + rp.walls * dbPerWall)
+      );
     });
   }
 
@@ -186,8 +188,12 @@
     cells = [];
     cellMap = {};
     rooms.forEach(function (r) {
-      var xs = r.poly.map(function (p) { return p[0]; });
-      var ys = r.poly.map(function (p) { return p[1]; });
+      var xs = r.poly.map(function (p) {
+        return p[0];
+      });
+      var ys = r.poly.map(function (p) {
+        return p[1];
+      });
       r._b = {
         x0: Math.min.apply(null, xs),
         x1: Math.max.apply(null, xs),
@@ -205,23 +211,18 @@
         var cy0 = b.minY + gy * ch;
         var cx = cx0 + cw / 2;
         var cy = cy0 + ch / 2;
-        // corner-aware membership: a cell belongs to the room that contains
-        // its center or most corners — avoids white slivers along room edges
-        // where no cell CENTER lands inside the polygon
+        // CENTER-based membership: a cell belongs to the room that contains
+        // its centre (or -1 outside). Deterministic — boundary cells keep one
+        // unambiguous owner, so the ray-cast wall count is stable and exact
+        // (the fill no longer depends on this: it uses AABB overlap + clip).
         var ri = -1;
-        var best = 0;
         for (var r = 0; r < rooms.length; r++) {
-          var cnt = 0;
-          if (pointInPoly(cx, cy, rooms[r].poly)) cnt += 2;
-          if (pointInPoly(cx0, cy0, rooms[r].poly)) cnt++;
-          if (pointInPoly(cx0 + cw, cy0, rooms[r].poly)) cnt++;
-          if (pointInPoly(cx0, cy0 + ch, rooms[r].poly)) cnt++;
-          if (pointInPoly(cx0 + cw, cy0 + ch, rooms[r].poly)) cnt++;
-          if (cnt > best) {
-            best = cnt;
+          if (pointInPoly(cx, cy, rooms[r].poly)) {
             ri = r;
+            break;
           }
         }
+        var c = { x: cx0, y: cy0, w: cw, h: ch, roomIdx: ri };
         if (ri !== -1) {
           var cell = {
             gx: gx,
@@ -276,9 +277,8 @@
       }
       prev = ri;
     }
-    // geojson unit = 4.45 m (user: the real flat is ~120 m²):
-    // report the split lengths in real meters
-    return { inside: inside * 4.45, outside: outside * 4.45, walls: walls };
+    // report the split lengths in real meters (per-map UNIT_M)
+    return { inside: inside * UNIT_M, outside: outside * UNIT_M, walls: walls };
   }
 
   function cellDbm(c, dbPerM, dbPerWall, roomIdx) {
@@ -286,13 +286,11 @@
     var cyc = c.y + c.h / 2;
     var rp = rayPath(router.x, router.y, cxc, cyc);
     var dbm =
-      dbmMax -
-      ((rp.inside + rp.outside) * dbPerM + rp.walls * dbPerWall);
+      dbmMax - ((rp.inside + rp.outside) * dbPerM + rp.walls * dbPerWall);
     if (repeaterOn && rep) {
       var rpr = rayPath(rep.x, rep.y, cxc, cyc);
       var dbmr =
-        dbmMax -
-        ((rpr.inside + rpr.outside) * dbPerM + rpr.walls * dbPerWall);
+        dbmMax - ((rpr.inside + rpr.outside) * dbPerM + rpr.walls * dbPerWall);
       dbm = Math.max(dbm, dbmr);
     }
     return dbm;
@@ -335,20 +333,33 @@
   }
 
   function findOptimalRoom() {
+    // intuitive objective: the placement that maximizes the MEAN predicted
+    // signal across all rooms (the notebook's cell-28 zone-weighted
+    // linear-power score rewards the strongest zones, which lets a corner
+    // bathroom "win" — nonsensical for coverage)
     var best = null,
-      bestScore = -1;
+      bestScore = -1e9,
+      bestMean = 0;
     for (var i = 0; i < rooms.length; i++) {
       var src = { x: rooms[i].cx, y: rooms[i].cy };
       var dbms = rooms.map(function (r) {
         var rp = rayPath(src.x, src.y, r.cx, r.cy);
-        return dbmMax - ((rp.inside + rp.outside) * dbPerM() + rp.walls * dbPerWall());
+        return (
+          dbmMax -
+          ((rp.inside + rp.outside) * dbPerM() + rp.walls * dbPerWall())
+        );
       });
-      var s = roomScore(dbms);
-      if (s > bestScore) {
-        bestScore = s;
+      var mean =
+        dbms.reduce(function (a, b) {
+          return a + b;
+        }, 0) / dbms.length;
+      if (mean > bestScore) {
+        bestScore = mean;
+        bestMean = mean;
         best = rooms[i];
       }
     }
+    best.optMean = bestMean;
     return best;
   }
 
@@ -485,7 +496,9 @@
       for (var s = -1; s <= 1; s += 2) {
         for (var i = 0; i < rooms.length; i++) {
           if (rooms[i] === r) continue;
-          if (pointInPoly(mx + nx * s * 0.03, my + ny * s * 0.03, rooms[i].poly)) {
+          if (
+            pointInPoly(mx + nx * s * 0.03, my + ny * s * 0.03, rooms[i].poly)
+          ) {
             return rooms[i];
           }
         }
@@ -525,11 +538,23 @@
         var seg = null;
         if (Math.abs(A2.x1 - B2.x0) <= EPS && A2.y0 < B2.y1 && A2.y1 > B2.y0) {
           seg = [A2.x1, Math.max(A2.y0, B2.y0), A2.x1, Math.min(A2.y1, B2.y1)];
-        } else if (Math.abs(A2.x0 - B2.x1) <= EPS && A2.y0 < B2.y1 && A2.y1 > B2.y0) {
+        } else if (
+          Math.abs(A2.x0 - B2.x1) <= EPS &&
+          A2.y0 < B2.y1 &&
+          A2.y1 > B2.y0
+        ) {
           seg = [A2.x0, Math.max(A2.y0, B2.y0), A2.x0, Math.min(A2.y1, B2.y1)];
-        } else if (Math.abs(A2.y1 - B2.y0) <= EPS && A2.x0 < B2.x1 && A2.x1 > B2.x0) {
+        } else if (
+          Math.abs(A2.y1 - B2.y0) <= EPS &&
+          A2.x0 < B2.x1 &&
+          A2.x1 > B2.x0
+        ) {
           seg = [Math.max(A2.x0, B2.x0), A2.y1, Math.min(A2.x1, B2.x1), A2.y1];
-        } else if (Math.abs(A2.y0 - B2.y1) <= EPS && A2.x0 < B2.x1 && A2.x1 > B2.x0) {
+        } else if (
+          Math.abs(A2.y0 - B2.y1) <= EPS &&
+          A2.x0 < B2.x1 &&
+          A2.x1 > B2.x0
+        ) {
           seg = [Math.max(A2.x0, B2.x0), A2.y0, Math.min(A2.x1, B2.x1), A2.y0];
         }
         if (!seg) continue;
@@ -674,10 +699,9 @@
     ctx.fillText(label + " — drag me", pt[0] + 13, pt[1] + 22);
   }
 
-
   // horizontal scale bar (bottom-left pad): shows real meters on the X axis
   function drawScaleBar(w, h, p) {
-    var pxPerM = (w - 92) / (B.maxX - B.minX) / 4.45;
+    var pxPerM = (w - 92) / (B.maxX - B.minX) / UNIT_M;
     var lens = [1, 2, 5, 10, 20];
     var len = 2;
     for (var i = 0; i < lens.length; i++) {
@@ -793,9 +817,36 @@
 
   function wireCanvas() {
     canvas.addEventListener("pointerdown", function (e) {
-      if (mode !== "sim") return;
       var pos = canvasPos(e);
-      var dr = dist(pos, router) * SCALE_M;
+      // custom editor mode
+      if (mapId === "custom" && !customAnalyzed) {
+        var pp = canvasPx(e);
+        var cell = customGridPos(pp.x, pp.y);
+        if (customTool === "erase") {
+          var idx = customRoomAt(cell.gx, cell.gy);
+          if (idx !== -1) {
+            customRooms.splice(idx, 1);
+            customSel = -1;
+            refreshCustomList();
+            renderEditor();
+          }
+          return;
+        }
+        var existing = customRoomAt(cell.gx, cell.gy);
+        if (existing !== -1) {
+          customSel = existing;
+          refreshCustomList();
+          renderEditor();
+          return;
+        }
+        customDrag = cell;
+        customPreview = cell;
+        canvas.setPointerCapture(e.pointerId);
+        renderEditor();
+        return;
+      }
+      if (mode !== "sim") return;
+      var dr = dist(pos, router) * UNIT_M;
       var dRep = repeaterOn && rep ? dist(pos, rep) : Infinity;
       if (repeaterOn && dRep < dr) drag = "rep";
       else drag = "router";
@@ -803,10 +854,58 @@
       updateDrag(pos);
     });
     canvas.addEventListener("pointermove", function (e) {
+      if (mapId === "custom" && !customAnalyzed) {
+        if (!customDrag) return;
+        var pp2 = canvasPx(e);
+        customPreview = customGridPos(pp2.x, pp2.y);
+        renderEditor();
+        return;
+      }
       if (!drag) return;
       updateDrag(canvasPos(e));
     });
     canvas.addEventListener("pointerup", function () {
+      if (mapId === "custom" && !customAnalyzed) {
+        if (customDrag && customPreview) {
+          var gx0 = Math.min(customDrag.gx, customPreview.gx);
+          var gx1 = Math.max(customDrag.gx, customPreview.gx);
+          var gy0 = Math.min(customDrag.gy, customPreview.gy);
+          var gy1 = Math.max(customDrag.gy, customPreview.gy);
+          if (gx1 > gx0 || gy1 > gy0) {
+            // reject if it overlaps an existing room
+            var ok = true;
+            for (var i = 0; i < customRooms.length; i++) {
+              var r = customRooms[i];
+              if (
+                gx0 <= r.gx1 &&
+                gx1 >= r.gx0 &&
+                gy0 <= r.gy1 &&
+                gy1 >= r.gy0
+              ) {
+                ok = false;
+                break;
+              }
+            }
+            if (ok) {
+              customRooms.push({
+                gx0: gx0,
+                gy0: gy0,
+                gx1: gx1,
+                gy1: gy1,
+                name: "",
+                zone: "",
+              });
+              refreshCustomList();
+            } else {
+              log("🧱 Room overlaps an existing room — drag a free area.");
+            }
+          }
+        }
+        customDrag = null;
+        customPreview = null;
+        renderEditor();
+        return;
+      }
       if (drag) {
         log(
           "📶 Source moved — " +
@@ -831,6 +930,245 @@
     if (drag === "router") router = pos;
     else rep = pos;
     render();
+  }
+
+  // ------------------------------------------------------- custom flat
+  // a paint-your-own flat: rooms are rectangles on a 1 m² grid; "Analyze"
+  // feeds them into the same sim pipeline (walls, ray-cast, optimal search)
+  var CUSTOM_W = 18;
+  var CUSTOM_H = 12;
+  var customRooms = [];
+  var customTool = "draw";
+  var customDrag = null; // {gx0, gy0} in grid cells (map-y orientation)
+  var customPreview = null;
+  var customAnalyzed = false;
+  var customSel = -1;
+
+  function customRoomAt(gx, gy) {
+    for (var i = 0; i < customRooms.length; i++) {
+      var r = customRooms[i];
+      if (gx >= r.gx0 && gx <= r.gx1 && gy >= r.gy0 && gy <= r.gy1) return i;
+    }
+    return -1;
+  }
+
+  function canvasPx(e) {
+    var r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  function customGridPos(px, py) {
+    // raw canvas px -> grid cell; grid rows grow DOWNWARD in canvas space
+    var w = canvas.width / dpr();
+    var h = canvas.height / dpr();
+    var pad = 46;
+    var ux = (w - pad * 2) / CUSTOM_W;
+    var uy = (h - pad * 2) / CUSTOM_H;
+    var gx = Math.floor((px - pad) / ux);
+    var gy = Math.floor((py - pad) / uy);
+    return {
+      gx: Math.max(0, Math.min(CUSTOM_W - 1, gx)),
+      gy: Math.max(0, Math.min(CUSTOM_H - 1, gy)),
+    };
+  }
+
+  function customCellRect(gx, gy) {
+    // grid cell -> {x0,y0,x1,y1} in METERS (map-y: row 0 = y=CUSTOM_H)
+    var pad = 46;
+    var w = canvas.width / dpr();
+    var h = canvas.height / dpr();
+    var ux = (w - pad * 2) / CUSTOM_W;
+    var uy = (h - pad * 2) / CUSTOM_H;
+    return {
+      x0: pad + gx * ux,
+      y0: pad + gy * uy,
+      x1: pad + (gx + 1) * ux,
+      y1: pad + (gy + 1) * uy,
+    };
+  }
+
+  function renderEditor() {
+    var p = pal();
+    var w = canvas.width / dpr();
+    var h = canvas.height / dpr();
+    var pad = 46;
+    ctx.clearRect(0, 0, w, h);
+    // grid
+    var ux = (w - pad * 2) / CUSTOM_W;
+    var uy = (h - pad * 2) / CUSTOM_H;
+    ctx.strokeStyle = p.faint;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var gx = 0; gx <= CUSTOM_W; gx++) {
+      ctx.moveTo(pad + gx * ux, pad);
+      ctx.lineTo(pad + gx * ux, h - pad);
+    }
+    for (var gy = 0; gy <= CUSTOM_H; gy++) {
+      ctx.moveTo(pad, pad + gy * uy);
+      ctx.lineTo(w - pad, pad + gy * uy);
+    }
+    ctx.stroke();
+    // rooms
+    customRooms.forEach(function (r, i) {
+      var px = customCellRect(r.gx0, r.gy0);
+      var qx = customCellRect(r.gx1, r.gy1);
+      ctx.fillStyle = p.wallEdge + "55";
+      ctx.fillRect(px.x0, px.y0, qx.x1 - px.x0, qx.y1 - px.y0);
+      ctx.strokeStyle = i === customSel ? "#f59e0b" : p.text;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px.x0, px.y0, qx.x1 - px.x0, qx.y1 - px.y0);
+      ctx.fillStyle = p.text;
+      ctx.font = "600 11px system-ui";
+      ctx.textAlign = "left";
+      ctx.fillText(r.name || "Room " + (i + 1), px.x0 + 4, px.y0 + 14);
+    });
+    // drag preview
+    if (customDrag && customPreview) {
+      var a = customCellRect(customDrag.gx, customDrag.gy);
+      var b = customCellRect(customPreview.gx, customPreview.gy);
+      var x0 = Math.min(a.x0, b.x0);
+      var y0 = Math.min(a.y0, b.y0);
+      ctx.strokeStyle = "#22c55e";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(x0, y0, Math.abs(b.x1 - a.x0), Math.abs(b.y1 - a.y0));
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = p.muted;
+    ctx.font = "11px system-ui";
+    ctx.textAlign = "left";
+    ctx.fillText("Draw rooms, then ▶️ Analyze", pad + 2, h - 8);
+  }
+
+  function refreshCustomList() {
+    var ul = $id("custom-rooms");
+    if (!ul) return;
+    ul.innerHTML = "";
+    customRooms.forEach(function (r, i) {
+      var li = document.createElement("li");
+      li.style.cssText = "display:flex;gap:6px;align-items:center;margin:3px 0";
+      var name = document.createElement("input");
+      name.value = r.name || "Room " + (i + 1);
+      name.style.width = "90px";
+      name.addEventListener("input", function () {
+        r.name = name.value || "Room " + (i + 1);
+        render();
+      });
+      var zone = document.createElement("input");
+      zone.value = r.zone || "Z" + (i + 1);
+      zone.style.width = "70px";
+      zone.title = "zone — rooms sharing a zone get dashed divisions";
+      zone.addEventListener("input", function () {
+        r.zone = zone.value || "Z" + (i + 1);
+        render();
+      });
+      var del = document.createElement("button");
+      del.textContent = "✕";
+      del.className = "btn";
+      del.style.cssText = "padding:0 8px";
+      del.addEventListener("click", function () {
+        customRooms.splice(i, 1);
+        refreshCustomList();
+        render();
+      });
+      li.appendChild(name);
+      li.appendChild(zone);
+      li.appendChild(del);
+      ul.appendChild(li);
+    });
+  }
+
+  function analyzeCustom() {
+    if (!customRooms.length) {
+      log("🧱 Draw at least one room first.");
+      return;
+    }
+    customAnalyzed = true;
+    UNIT_M = 1; // the custom grid is 1 m per cell
+    rooms = customRooms.map(function (r, i) {
+      // grid rows grow DOWN in canvas space; the sim's map-y grows UP
+      var yTop = CUSTOM_H - r.gy1; // top row of the room (map-y)
+      var yBot = CUSTOM_H - r.gy0; // bottom row
+      var x0 = r.gx0;
+      var x1 = r.gx1 + 1;
+      return {
+        name: r.name || "Room " + (i + 1),
+        zone: r.zone || "Z" + (i + 1),
+        poly: [
+          [x0, yTop],
+          [x1, yTop],
+          [x1, yBot],
+          [x0, yBot],
+        ],
+        cx: (x0 + x1) / 2,
+        cy: (yTop + yBot) / 2,
+        dBm: -60,
+        gx0: r.gx0,
+        gy0: r.gy0,
+        gx1: r.gx1,
+        gy1: r.gy1,
+      };
+    });
+    mapId = "custom";
+    dbmMax = -37;
+    B = bounds();
+    optimalName = null;
+    router = { x: rooms[0].cx, y: rooms[0].cy };
+    rep = null;
+    buildCells();
+    sizeCanvas();
+    render();
+    renderScores(
+      rooms.map(function (r) {
+        return r.dBm;
+      }),
+    );
+    log(
+      "🧱 Custom flat analyzed — drag the router, toggle the repeater, find the optimum.",
+    );
+    // the custom flat's purpose is the simulation — switch to SIM mode
+    $id("mode-sim").click();
+  }
+
+  function enterCustomEditor() {
+    customAnalyzed = false;
+    UNIT_M = 1;
+    mapId = "custom";
+    $id("custom-bar").hidden = false;
+    refreshCustomList();
+    sizeCanvas();
+    renderEditor();
+  }
+
+  // --------------------------------------------------- router + repeater
+  function findBestPair() {
+    var best = null;
+    var bestScore = -Infinity;
+    for (var i = 0; i < rooms.length; i++) {
+      for (var j = 0; j < rooms.length; j++) {
+        if (i === j) continue;
+        var p1 = { x: rooms[i].cx, y: rooms[i].cy };
+        var p2 = { x: rooms[j].cx, y: rooms[j].cy };
+        var sum = 0;
+        for (var k = 0; k < rooms.length; k++) {
+          var t = rooms[k];
+          var r1 = rayPath(p1.x, p1.y, t.cx, t.cy);
+          var r2 = rayPath(p2.x, p2.y, t.cx, t.cy);
+          var d1 =
+            dbmMax -
+            ((r1.inside + r1.outside) * dbPerM() + r1.walls * dbPerWall());
+          var d2 =
+            dbmMax -
+            ((r2.inside + r2.outside) * dbPerM() + r2.walls * dbPerWall());
+          sum += Math.max(d1, d2);
+        }
+        var score = sum / rooms.length;
+        if (score > bestScore) {
+          bestScore = score;
+          best = { router: rooms[i], repeater: rooms[j] };
+        }
+      }
+    }
+    return { router: best.router, repeater: best.repeater, mean: bestScore };
   }
 
   // ---------------------------------------------------------------- guide
@@ -861,9 +1199,32 @@
         document.querySelectorAll(".map-row [data-map]").forEach(function (b) {
           b.classList.toggle("active", b === btn);
         });
+        if (btn.dataset.map === "custom") {
+          enterCustomEditor();
+          return;
+        }
+        $id("custom-bar").hidden = true;
+        customAnalyzed = false;
         setMap(btn.dataset.map);
       });
     });
+    $id("tool-draw").addEventListener("click", function () {
+      customTool = "draw";
+      $id("tool-draw").classList.add("active");
+      $id("tool-erase").classList.remove("active");
+    });
+    $id("tool-erase").addEventListener("click", function () {
+      customTool = "erase";
+      $id("tool-erase").classList.add("active");
+      $id("tool-draw").classList.remove("active");
+    });
+    $id("btn-clear").addEventListener("click", function () {
+      customRooms = [];
+      customSel = -1;
+      refreshCustomList();
+      renderEditor();
+    });
+    $id("btn-analyze").addEventListener("click", analyzeCustom);
     $id("grid-res").addEventListener("input", function () {
       cellN = Number(this.value);
       $id("grid-res-v").textContent = this.value;
@@ -925,6 +1286,9 @@
 
     $id("btn-optimal").addEventListener("click", function () {
       var best = findOptimalRoom();
+      // place the router at the optimal spot and report the true mean
+      router.x = best.cx;
+      router.y = best.cy;
       optimalName = best.name;
       log(
         "✨ Optimal router location: " +
@@ -932,11 +1296,42 @@
           " (zone " +
           best.zone +
           ") — mean predicted " +
-          Math.round(predictedDbm(dbPerM(), dbPerWall())[rooms.indexOf(best)]) +
-          " dBm in it.",
+          Math.round(best.optMean) +
+          " dBm across the flat.",
       );
       render();
       renderScores(predictedDbm(dbPerM(), dbPerWall()));
+    });
+    $id("btn-pair").addEventListener("click", function () {
+      if (rooms.length < 2) {
+        log("🔎 Draw at least two rooms first.");
+        return;
+      }
+      if (!repeaterOn) {
+        $id("rep-toggle").checked = true;
+        repeaterOn = true;
+      }
+      if (!rep) rep = { x: rooms[0].cx + 0.3, y: rooms[0].cy + 0.3 };
+      log("🔎 Searching the best router + repeater pair…");
+      // let the log paint before the brute-force loop
+      setTimeout(function () {
+        var best = findBestPair();
+        router.x = best.router.cx;
+        router.y = best.router.cy;
+        rep.x = best.repeater.cx;
+        rep.y = best.repeater.cy;
+        log(
+          "✨ Best router + repeater: router in " +
+            best.router.name +
+            " + repeater in " +
+            best.repeater.name +
+            " — mean predicted " +
+            Math.round(best.mean) +
+            " dBm across the flat.",
+        );
+        render();
+        renderScores(predictedDbm(dbPerM(), dbPerWall()));
+      }, 50);
     });
 
     $id("btn-reset").addEventListener("click", function () {

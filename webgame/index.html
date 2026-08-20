@@ -148,6 +148,7 @@
             <button class="btn mode-btn" data-map="estudio">🏢 Estudio</button>
             <button class="btn mode-btn" data-map="piso">🏡 Piso</button>
             <button class="btn mode-btn" data-map="loft">🏗️ Loft</button>
+            <button class="btn mode-btn" data-map="custom">🧱 Custom</button>
           </div>
           <label class="slider-row"
             >Subdivision
@@ -190,7 +191,34 @@
             <button class="btn primary" id="btn-optimal">
               ✨ Find optimal room
             </button>
+            <button
+              class="btn"
+              id="btn-pair"
+              title="Brute-force the best router + repeater pair"
+            >
+              🔎 Router + repeater
+            </button>
           </div>
+          <section id="custom-bar" class="card" hidden>
+            <h3>🧱 Custom flat</h3>
+            <p class="keys">
+              Drag on the grid to draw a rectangular room; click one to select;
+              erase by clicking with the eraser.
+            </p>
+            <div class="row" style="gap: 6px; flex-wrap: wrap">
+              <button class="btn mode-btn active" id="tool-draw">
+                🖊️ Draw
+              </button>
+              <button class="btn mode-btn" id="tool-erase">❌ Erase</button>
+              <button class="btn mode-btn" id="btn-clear">🧹 Clear</button>
+              <button class="btn primary" id="btn-analyze">▶️ Analyze</button>
+            </div>
+            <ul
+              id="custom-rooms"
+              class="keys"
+              style="max-height: 120px; overflow: auto"
+            ></ul>
+          </section>
           <div id="meas-note" class="keys">
             Measured mean dBm per room of the house's own 5&nbsp;GHz network
             (WiFi beacon scan, one capture per room).
@@ -311,6 +339,6 @@
       async
     ></script>
     <script src="js/guide.js?v=3"></script>
-    <script src="js/main.js?v=17"></script>
+    <script src="js/main.js?v=18"></script>
   </body>
 </html>

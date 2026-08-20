@@ -364,6 +364,19 @@ def tile_real_house(rooms_in):
         for p in r["poly"]:
             p[0] = snap(p[0], 0.02)
             p[1] = snap(p[1], 0.02)
+    # FINAL: snap every room edge onto the SIMULATION cell grid (32x32 over
+    # the map bbox) so the heatmap cells and the room walls align EXACTLY —
+    # the subdivision slider defaults to 32, other values are best-effort.
+    gx0 = min(min(p[0] for p in r["poly"]) for r in out)
+    gx1 = max(max(p[0] for p in r["poly"]) for r in out)
+    gy0 = min(min(p[1] for p in r["poly"]) for r in out)
+    gy1 = max(max(p[1] for p in r["poly"]) for r in out)
+    px = (gx1 - gx0) / 32
+    py = (gy1 - gy0) / 32
+    for r in out:
+        for p in r["poly"]:
+            p[0] = gx0 + round((p[0] - gx0) / px) * px
+            p[1] = gy0 + round((p[1] - gy0) / py) * py
     return out
 
 def walls_matrix(rooms, zones):

@@ -179,6 +179,16 @@
   function buildCells() {
     cells = [];
     cellMap = {};
+    rooms.forEach(function (r) {
+      var xs = r.poly.map(function (p) { return p[0]; });
+      var ys = r.poly.map(function (p) { return p[1]; });
+      r._b = {
+        x0: Math.min.apply(null, xs),
+        x1: Math.max.apply(null, xs),
+        y0: Math.min.apply(null, ys),
+        y1: Math.max.apply(null, ys),
+      };
+    });
     var b = B;
     if (!b) return;
     var cw = (b.maxX - b.minX) / cellN;
@@ -223,19 +233,19 @@
     }
   }
 
-  function cellDbm(c, dbPerM, dbPerWall) {
+  function cellDbm(c, dbPerM, dbPerWall, roomIdx) {
     var cxc = c.x + c.w / 2;
     var cyc = c.y + c.h / 2;
     var z = zoneAt(router.x, router.y);
     var d = Math.hypot(router.x - cxc, router.y - cyc);
     var dbm =
-      dbmMax - (d * dbPerM + WALLS_BT[z][rooms[c.roomIdx].zone] * dbPerWall);
+      dbmMax - (d * dbPerM + WALLS_BT[z][rooms[roomIdx].zone] * dbPerWall);
     if (repeaterOn && rep) {
       var zr = zoneAt(rep.x, rep.y);
       var dr = Math.hypot(rep.x - cxc, rep.y - cyc);
       var dbmr =
         dbmMax -
-        (dr * dbPerM + WALLS_BT[zr][rooms[c.roomIdx].zone] * dbPerWall);
+        (dr * dbPerM + WALLS_BT[zr][rooms[roomIdx].zone] * dbPerWall);
       dbm = Math.max(dbm, dbmr);
     }
     return dbm;
@@ -374,11 +384,20 @@
       ctx.closePath();
       ctx.clip();
       cells.forEach(function (c) {
-        if (c.roomIdx !== ri) return;
+        // fill every cell whose rect OVERLAPS this room — the room clip
+        // bounds the fill to the poly. (A straddling cell's roomIdx can be
+        // the NEIGHBOR — its center may sit past this room's edge — so the
+        // roomIdx check would leave an unfilled strip along the wall.)
+        var ov =
+          c.x + c.w > r._b.x0 &&
+          c.x < r._b.x1 &&
+          c.y + c.h > r._b.y0 &&
+          c.y < r._b.y1;
+        if (!ov) return;
         var v =
           mode === "meas"
-            ? rooms[c.roomIdx].dBm
-            : cellDbm(c, dbPerM(), dbPerWall());
+            ? rooms[ri].dBm
+            : cellDbm(c, dbPerM(), dbPerWall(), ri);
         var tl = toPx(c.x, c.y);
         var br = toPx(c.x + c.w, c.y + c.h);
         // normalize the rect: the y-flip makes br[1]-tl[1] NEGATIVE, and a

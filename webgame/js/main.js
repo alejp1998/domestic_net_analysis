@@ -165,9 +165,8 @@
 
   function predictFrom(src, dbPerM, dbPerWall) {
     return rooms.map(function (r) {
-      var d = dist(src, { x: r.cx, y: r.cy });
-      var walls = rayWalls(src.x, src.y, r.cx, r.cy);
-      return dbmMax - (d * dbPerM + walls * dbPerWall);
+      var rp = rayPath(src.x, src.y, r.cx, r.cy);
+      return dbmMax - ((rp.inside + rp.outside) * dbPerM + rp.walls * dbPerWall);
     });
   }
 
@@ -244,16 +243,25 @@
   // the cell grid and counts every room-boundary transition. More accurate
   // than the zone matrix (which gave every cell of a room the same count and
   // produced counterintuitive neighbour-vs-distant comparisons).
-  function rayWalls(x0, y0, x1, y1) {
+  // ray from (x0,y0) to (x1,y1): counts the walls crossed and splits the
+  // travelled distance into the in-flat part (inside rooms) and the
+  // out-of-flat part (outside the house — through concave notches/corners).
+  // BOTH lengths charge the distance degradation (the flat distance drives
+  // the term), and every room transition — including into/out of the
+  // OUTSIDE — charges a wall (exterior walls degrade too).
+  function rayPath(x0, y0, x1, y1) {
     var dx = x1 - x0;
     var dy = y1 - y0;
     var len = Math.hypot(dx, dy);
-    if (len < 1e-9) return 0;
+    if (len < 1e-9) return { inside: 0, outside: 0, walls: 0 };
     var n = Math.ceil(len / 0.02);
     var walls = 0;
+    var inside = 0;
+    var outside = 0;
     var prev = -2;
     var rw = (B.maxX - B.minX) / cellN;
     var rh = (B.maxY - B.minY) / cellN;
+    var step = len / n;
     for (var s = 0; s <= n; s++) {
       var px = x0 + (dx * s) / n;
       var py = y0 + (dy * s) / n;
@@ -261,27 +269,28 @@
       var gy = Math.floor((py - B.minY) / rh);
       var cell = cellMap[gx + "," + gy];
       var ri = cell ? cell.roomIdx : -1;
-      // every room transition counts — including into/out of the OUTSIDE:
-      // paths that leave the house (concave corners, notches) cross the
-      // exterior wall, and that wall degrades the signal too
       if (s > 0 && prev !== -2 && ri !== prev) walls++;
+      if (s > 0) {
+        if (prev === -1) outside += step;
+        else if (prev !== -2) inside += step;
+      }
       prev = ri;
     }
-    return walls;
+    return { inside: inside, outside: outside, walls: walls };
   }
 
   function cellDbm(c, dbPerM, dbPerWall, roomIdx) {
     var cxc = c.x + c.w / 2;
     var cyc = c.y + c.h / 2;
-    var d = Math.hypot(router.x - cxc, router.y - cyc);
+    var rp = rayPath(router.x, router.y, cxc, cyc);
     var dbm =
       dbmMax -
-      (d * dbPerM + rayWalls(router.x, router.y, cxc, cyc) * dbPerWall);
+      ((rp.inside + rp.outside) * dbPerM + rp.walls * dbPerWall);
     if (repeaterOn && rep) {
-      var dr = Math.hypot(rep.x - cxc, rep.y - cyc);
+      var rpr = rayPath(rep.x, rep.y, cxc, cyc);
       var dbmr =
         dbmMax -
-        (dr * dbPerM + rayWalls(rep.x, rep.y, cxc, cyc) * dbPerWall);
+        ((rpr.inside + rpr.outside) * dbPerM + rpr.walls * dbPerWall);
       dbm = Math.max(dbm, dbmr);
     }
     return dbm;
@@ -329,8 +338,8 @@
     for (var i = 0; i < rooms.length; i++) {
       var src = { x: rooms[i].cx, y: rooms[i].cy };
       var dbms = rooms.map(function (r) {
-        var d = dist(src, { x: r.cx, y: r.cy });
-        return dbmMax - (d * dbPerM() + rayWalls(src.x, src.y, r.cx, r.cy) * dbPerWall());
+        var rp = rayPath(src.x, src.y, r.cx, r.cy);
+        return dbmMax - ((rp.inside + rp.outside) * dbPerM() + rp.walls * dbPerWall());
       });
       var s = roomScore(dbms);
       if (s > bestScore) {

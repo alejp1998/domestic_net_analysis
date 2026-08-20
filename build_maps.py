@@ -180,6 +180,116 @@ def tile_real_house(rooms_in):
                     moved += 1
         if moved == 0:
             break
+    # block alignment: subrooms of the same zone form a PERFECT rectangle —
+    # snap edges that lie on a block side to the block's extreme, so grouped
+    # rooms (e.g. the Salon-1..6 block) have straight collinear borders.
+    from collections import defaultdict
+    by_zone = defaultdict(list)
+    for r in out:
+        by_zone[r["zone"]].append(r)
+    for zone, rs in by_zone.items():
+        if len(rs) < 2:
+            continue
+        xs0 = min(min(p[0] for p in r["poly"]) for r in rs)
+        xs1 = max(max(p[0] for p in r["poly"]) for r in rs)
+        ys0 = min(min(p[1] for p in r["poly"]) for r in rs)
+        ys1 = max(max(p[1] for p in r["poly"]) for r in rs)
+        for r in rs:
+            poly = r["poly"]
+            x0 = min(p[0] for p in poly)
+            x1 = max(p[0] for p in poly)
+            y0 = min(p[1] for p in poly)
+            y1 = max(p[1] for p in poly)
+            if abs(x0 - xs0) <= 0.03:
+                for p in poly:
+                    if abs(p[0] - x0) < 1e-9:
+                        p[0] = xs0
+            if abs(x1 - xs1) <= 0.03:
+                for p in poly:
+                    if abs(p[0] - x1) < 1e-9:
+                        p[0] = xs1
+            if abs(y0 - ys0) <= 0.03:
+                for p in poly:
+                    if abs(p[1] - y0) < 1e-9:
+                        p[1] = ys0
+            if abs(y1 - ys1) <= 0.03:
+                for p in poly:
+                    if abs(p[1] - y1) < 1e-9:
+                        p[1] = ys1
+    # conform + re-align, iterated: rooms adjacent to a block side snap to
+    # the block's extreme too, so shared edges sit ON the block boundary —
+    # blocks stay perfect rectangles AND neighbours keep exact shared edges.
+    def align():
+        for zone, rs in by_zone.items():
+            if len(rs) < 2:
+                continue
+            xs0 = min(min(p[0] for p in r["poly"]) for r in rs)
+            xs1 = max(max(p[0] for p in r["poly"]) for r in rs)
+            ys0 = min(min(p[1] for p in r["poly"]) for r in rs)
+            ys1 = max(max(p[1] for p in r["poly"]) for r in rs)
+            for r in rs:
+                poly = r["poly"]
+                x0 = min(p[0] for p in poly)
+                x1 = max(p[0] for p in poly)
+                y0 = min(p[1] for p in poly)
+                y1 = max(p[1] for p in poly)
+                if abs(x0 - xs0) <= 0.03:
+                    for p in poly:
+                        if abs(p[0] - x0) < 1e-9:
+                            p[0] = xs0
+                if abs(x1 - xs1) <= 0.03:
+                    for p in poly:
+                        if abs(p[0] - x1) < 1e-9:
+                            p[0] = xs1
+                if abs(y0 - ys0) <= 0.03:
+                    for p in poly:
+                        if abs(p[1] - y0) < 1e-9:
+                            p[1] = ys0
+                if abs(y1 - ys1) <= 0.03:
+                    for p in poly:
+                        if abs(p[1] - y1) < 1e-9:
+                            p[1] = ys1
+
+    def conform():
+        for zone, rs in by_zone.items():
+            if len(rs) < 2:
+                continue
+            xs0 = min(min(p[0] for p in r["poly"]) for r in rs)
+            xs1 = max(max(p[0] for p in r["poly"]) for r in rs)
+            ys0 = min(min(p[1] for p in r["poly"]) for r in rs)
+            ys1 = max(max(p[1] for p in r["poly"]) for r in rs)
+            for r in out:
+                if r["zone"] == zone:
+                    continue
+                poly = r["poly"]
+                x0 = min(p[0] for p in poly)
+                x1 = max(p[0] for p in poly)
+                y0 = min(p[1] for p in poly)
+                y1 = max(p[1] for p in poly)
+                if abs(x1 - xs0) <= 0.04:
+                    for p in poly:
+                        if abs(p[0] - x1) < 1e-9:
+                            p[0] = xs0
+                if abs(x0 - xs1) <= 0.04:
+                    for p in poly:
+                        if abs(p[0] - x0) < 1e-9:
+                            p[0] = xs1
+                if abs(y1 - ys0) <= 0.04:
+                    for p in poly:
+                        if abs(p[1] - y1) < 1e-9:
+                            p[1] = ys0
+                if abs(y0 - ys1) <= 0.04:
+                    for p in poly:
+                        if abs(p[1] - y0) < 1e-9:
+                            p[1] = ys1
+
+    for _ in range(4):
+        align()
+        conform()
+    for r in out:
+        for p in r["poly"]:
+            p[0] = snap(p[0], 0.02)
+            p[1] = snap(p[1], 0.02)
     return out
 
 def walls_matrix(rooms, zones):

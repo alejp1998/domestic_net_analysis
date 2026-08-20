@@ -521,7 +521,7 @@
     }
 
     // legend
-    drawLegend(w, p);
+    drawLegend(w, h, p);
 
     // mode label
     ctx.fillStyle = p.muted;
@@ -551,27 +551,27 @@
     ctx.fillText(label + " — drag me", pt[0] + 13, pt[1] + 22);
   }
 
-  function drawLegend(w, p) {
+  function drawLegend(w, h, p) {
     var lw = Math.min(230, w * 0.3);
     var lx = w - lw - 14;
-    var ly = 14;
+    var ly = h - 44; // bottom pad — fully below the map outline (map ends at h-46)
     ctx.fillStyle = p.panel + "dd";
     ctx.strokeStyle = p.border;
     ctx.beginPath();
-    ctx.roundRect(lx, ly, lw, 46, 8);
+    ctx.roundRect(lx, ly, lw, 40, 8);
     ctx.fill();
     ctx.stroke();
     var grad = ctx.createLinearGradient(lx + 10, 0, lx + lw - 10, 0);
     for (var i = 0; i < p.heat.length; i++)
       grad.addColorStop(i / (p.heat.length - 1), p.heat[i]);
     ctx.fillStyle = grad;
-    ctx.fillRect(lx + 10, ly + 12, lw - 20, 10);
+    ctx.fillRect(lx + 10, ly + 10, lw - 20, 10);
     ctx.fillStyle = p.muted;
     ctx.font = "10px system-ui";
     ctx.textAlign = "left";
-    ctx.fillText(Math.round(heatMax) + " dBm (best)", lx + 10, ly + 34);
+    ctx.fillText(Math.round(heatMax) + " dBm (best)", lx + 10, ly + 32);
     ctx.textAlign = "right";
-    ctx.fillText(Math.round(heatMin) + " dBm", lx + lw - 10, ly + 34);
+    ctx.fillText(Math.round(heatMin) + " dBm", lx + lw - 10, ly + 32);
   }
 
   // ---------------------------------------------------------------- scores

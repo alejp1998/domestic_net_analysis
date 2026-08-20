@@ -164,10 +164,9 @@
   }
 
   function predictFrom(src, dbPerM, dbPerWall) {
-    var z = zoneAt(src.x, src.y);
     return rooms.map(function (r) {
       var d = dist(src, { x: r.cx, y: r.cy });
-      var walls = WALLS_BT[z][r.zone];
+      var walls = rayWalls(src.x, src.y, r.cx, r.cy);
       return dbmMax - (d * dbPerM + walls * dbPerWall);
     });
   }
@@ -241,19 +240,45 @@
     }
   }
 
+  // walls actually crossed along the straight line (router -> point): walks
+  // the cell grid and counts every room-boundary transition. More accurate
+  // than the zone matrix (which gave every cell of a room the same count and
+  // produced counterintuitive neighbour-vs-distant comparisons).
+  function rayWalls(x0, y0, x1, y1) {
+    var dx = x1 - x0;
+    var dy = y1 - y0;
+    var len = Math.hypot(dx, dy);
+    if (len < 1e-9) return 0;
+    var n = Math.ceil(len / 0.02);
+    var walls = 0;
+    var prev = -2;
+    var rw = (B.maxX - B.minX) / cellN;
+    var rh = (B.maxY - B.minY) / cellN;
+    for (var s = 0; s <= n; s++) {
+      var px = x0 + (dx * s) / n;
+      var py = y0 + (dy * s) / n;
+      var gx = Math.floor((px - B.minX) / rw);
+      var gy = Math.floor((py - B.minY) / rh);
+      var cell = cellMap[gx + "," + gy];
+      var ri = cell ? cell.roomIdx : -1;
+      if (s > 0 && ri !== -1 && prev !== -2 && ri !== prev) walls++;
+      prev = ri;
+    }
+    return walls;
+  }
+
   function cellDbm(c, dbPerM, dbPerWall, roomIdx) {
     var cxc = c.x + c.w / 2;
     var cyc = c.y + c.h / 2;
-    var z = zoneAt(router.x, router.y);
     var d = Math.hypot(router.x - cxc, router.y - cyc);
     var dbm =
-      dbmMax - (d * dbPerM + WALLS_BT[z][rooms[roomIdx].zone] * dbPerWall);
+      dbmMax -
+      (d * dbPerM + rayWalls(router.x, router.y, cxc, cyc) * dbPerWall);
     if (repeaterOn && rep) {
-      var zr = zoneAt(rep.x, rep.y);
       var dr = Math.hypot(rep.x - cxc, rep.y - cyc);
       var dbmr =
         dbmMax -
-        (dr * dbPerM + WALLS_BT[zr][rooms[roomIdx].zone] * dbPerWall);
+        (dr * dbPerM + rayWalls(rep.x, rep.y, cxc, cyc) * dbPerWall);
       dbm = Math.max(dbm, dbmr);
     }
     return dbm;
@@ -300,10 +325,9 @@
       bestScore = -1;
     for (var i = 0; i < rooms.length; i++) {
       var src = { x: rooms[i].cx, y: rooms[i].cy };
-      var z = rooms[i].zone;
       var dbms = rooms.map(function (r) {
         var d = dist(src, { x: r.cx, y: r.cy });
-        return dbmMax - (d * dbPerM() + WALLS_BT[z][r.zone] * dbPerWall());
+        return dbmMax - (d * dbPerM() + rayWalls(src.x, src.y, r.cx, r.cy) * dbPerWall());
       });
       var s = roomScore(dbms);
       if (s > bestScore) {
@@ -459,46 +483,112 @@
       var b = r.poly[(e + 1) % r.poly.length];
       return [toPx(a[0], a[1]), toPx(b[0], b[1])];
     }
-    // solid: walls between groups (different zones)
+    // shared walls from room-PAIR segments: every adjacent pair contributes
+    // its exact shared segment, drawn once — no midpoint probing, so long
+    // edges spanning several neighbors (e.g. the Salon/Pasillo row) get every
+    // piece. Solid between different zones, dashed within a zone.
+    var EPS = 0.03;
+    var bb2 = rooms.map(function (r) {
+      var xs = [],
+        ys = [];
+      r.poly.forEach(function (p) {
+        xs.push(p[0]);
+        ys.push(p[1]);
+      });
+      return {
+        x0: Math.min.apply(null, xs),
+        x1: Math.max.apply(null, xs),
+        y0: Math.min.apply(null, ys),
+        y1: Math.max.apply(null, ys),
+      };
+    });
+    var solidPath = [];
+    var dashPath = [];
+    for (var pi = 0; pi < rooms.length; pi++) {
+      var A2 = bb2[pi];
+      for (var pj = pi + 1; pj < rooms.length; pj++) {
+        var B2 = bb2[pj];
+        var seg = null;
+        if (Math.abs(A2.x1 - B2.x0) <= EPS && A2.y0 < B2.y1 && A2.y1 > B2.y0) {
+          seg = [A2.x1, Math.max(A2.y0, B2.y0), A2.x1, Math.min(A2.y1, B2.y1)];
+        } else if (Math.abs(A2.x0 - B2.x1) <= EPS && A2.y0 < B2.y1 && A2.y1 > B2.y0) {
+          seg = [A2.x0, Math.max(A2.y0, B2.y0), A2.x0, Math.min(A2.y1, B2.y1)];
+        } else if (Math.abs(A2.y1 - B2.y0) <= EPS && A2.x0 < B2.x1 && A2.x1 > B2.x0) {
+          seg = [Math.max(A2.x0, B2.x0), A2.y1, Math.min(A2.x1, B2.x1), A2.y1];
+        } else if (Math.abs(A2.y0 - B2.y1) <= EPS && A2.x0 < B2.x1 && A2.x1 > B2.x0) {
+          seg = [Math.max(A2.x0, B2.x0), A2.y0, Math.min(A2.x1, B2.x1), A2.y0];
+        }
+        if (!seg) continue;
+        var ta = toPx(seg[0], seg[1]);
+        var tb = toPx(seg[2], seg[3]);
+        var sitem = [ta[0], ta[1], tb[0], tb[1]];
+        if (rooms[pi].zone === rooms[pj].zone) dashPath.push(sitem);
+        else solidPath.push(sitem);
+      }
+    }
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = p.wallEdge;
     ctx.beginPath();
-    rooms.forEach(function (r) {
-      for (var e = 0; e < r.poly.length; e++) {
-        var nb = wallNeighbor(r, e);
-        if (nb && nb.zone !== r.zone && r.name < nb.name) {
-          var pp = edgePts(r, e);
-          ctx.moveTo(pp[0][0], pp[0][1]);
-          ctx.lineTo(pp[1][0], pp[1][1]);
-        }
-      }
+    solidPath.forEach(function (s) {
+      ctx.moveTo(s[0], s[1]);
+      ctx.lineTo(s[2], s[3]);
     });
     ctx.stroke();
-    // dashed: subroom divisions within a group (same zone)
     ctx.setLineDash([7, 5]);
     ctx.beginPath();
-    rooms.forEach(function (r) {
-      for (var e = 0; e < r.poly.length; e++) {
-        var nb = wallNeighbor(r, e);
-        if (nb && nb.zone === r.zone && r.name < nb.name) {
-          var pp = edgePts(r, e);
-          ctx.moveTo(pp[0][0], pp[0][1]);
-          ctx.lineTo(pp[1][0], pp[1][1]);
-        }
-      }
+    dashPath.forEach(function (s) {
+      ctx.moveTo(s[0], s[1]);
+      ctx.lineTo(s[2], s[3]);
     });
     ctx.stroke();
     ctx.setLineDash([]);
-    // thick outline: outward-facing edges
+    // thick outline: the runs of each room edge with NO adjacent room
+    function hasNeighbor(r, px, py, nx, ny) {
+      for (var s = -1; s <= 1; s += 2) {
+        for (var i = 0; i < rooms.length; i++) {
+          if (
+            rooms[i] !== r &&
+            pointInPoly(px + nx * s * 0.03, py + ny * s * 0.03, rooms[i].poly)
+          ) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = p.text;
     ctx.beginPath();
     rooms.forEach(function (r) {
       for (var e = 0; e < r.poly.length; e++) {
-        if (!wallNeighbor(r, e)) {
-          var pp = edgePts(r, e);
-          ctx.moveTo(pp[0][0], pp[0][1]);
-          ctx.lineTo(pp[1][0], pp[1][1]);
+        var a = r.poly[e];
+        var b = r.poly[(e + 1) % r.poly.length];
+        var dx = b[0] - a[0];
+        var dy = b[1] - a[1];
+        var len = Math.hypot(dx, dy);
+        if (len < 1e-6) continue;
+        var nx = -dy / len;
+        var ny = dx / len;
+        var nsteps = Math.max(1, Math.ceil(len / 0.02));
+        var run = null;
+        for (var s = 0; s <= nsteps; s++) {
+          var mx = a[0] + (dx * s) / nsteps;
+          var my = a[1] + (dy * s) / nsteps;
+          var ext = !hasNeighbor(r, mx, my, nx, ny);
+          if (ext && !run) run = [mx, my];
+          else if (!ext && run) {
+            var t1 = toPx(run[0], run[1]);
+            var t2 = toPx(mx, my);
+            ctx.moveTo(t1[0], t1[1]);
+            ctx.lineTo(t2[0], t2[1]);
+            run = null;
+          }
+        }
+        if (run) {
+          var u1 = toPx(run[0], run[1]);
+          var u2 = toPx(b[0], b[1]);
+          ctx.moveTo(u1[0], u1[1]);
+          ctx.lineTo(u2[0], u2[1]);
         }
       }
     });

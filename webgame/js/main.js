@@ -261,7 +261,10 @@
       var gy = Math.floor((py - B.minY) / rh);
       var cell = cellMap[gx + "," + gy];
       var ri = cell ? cell.roomIdx : -1;
-      if (s > 0 && ri !== -1 && prev !== -2 && ri !== prev) walls++;
+      // every room transition counts — including into/out of the OUTSIDE:
+      // paths that leave the house (concave corners, notches) cross the
+      // exterior wall, and that wall degrades the signal too
+      if (s > 0 && prev !== -2 && ri !== prev) walls++;
       prev = ri;
     }
     return walls;

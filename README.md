@@ -31,7 +31,9 @@ The model was extracted into **`analysis_model.py`** (reusable + unit-tested)
 and ported to JavaScript for the web edition. The web simulator **refines the
 notebook's zone-matrix walls with per-cell ray-cast wall counting** — every
 heatmap cell walks the straight line from the router and counts the actual
-walls crossed, so neighbouring rooms never lose to more distant ones. That
+walls crossed — **including the exterior walls** when the line leaves the
+house through a concave corner or notch — so neighbouring rooms never lose to
+more distant ones and corner rooms don't over-score. That
 refinement is why the web edition's optimal spot can differ from the
 notebook's Pasillo-2 result (the notebook's zone matrix is the coarser
 approximation).

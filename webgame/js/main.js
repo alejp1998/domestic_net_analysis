@@ -420,107 +420,83 @@
       ctx.restore();
     });
 
-    // walls from the room POLYGONS: shared edges are thin interior walls,
-    // outward-facing edges are the thick house outline (cells only fill)
+    // walls from the room POLYGONS:
+    //  - shared edges between DIFFERENT zones: solid thin walls
+    //  - shared edges between rooms of the SAME zone (subroom divisions):
+    //    DASHED — the group's internal divisions replace the solid line
+    //  - outward-facing edges: the thick house outline
+    function wallNeighbor(r, e) {
+      var poly = r.poly;
+      var a = poly[e];
+      var b = poly[(e + 1) % poly.length];
+      var mx = (a[0] + b[0]) / 2;
+      var my = (a[1] + b[1]) / 2;
+      var dx = b[0] - a[0];
+      var dy = b[1] - a[1];
+      var nx = -dy;
+      var ny = dx;
+      var nl = Math.hypot(nx, ny) || 1;
+      nx /= nl;
+      ny /= nl;
+      for (var s = -1; s <= 1; s += 2) {
+        for (var i = 0; i < rooms.length; i++) {
+          if (rooms[i] === r) continue;
+          if (pointInPoly(mx + nx * s * 0.03, my + ny * s * 0.03, rooms[i].poly)) {
+            return rooms[i];
+          }
+        }
+      }
+      return null;
+    }
+    function edgePts(r, e) {
+      var a = r.poly[e];
+      var b = r.poly[(e + 1) % r.poly.length];
+      return [toPx(a[0], a[1]), toPx(b[0], b[1])];
+    }
+    // solid: walls between groups
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = p.wallEdge;
     ctx.beginPath();
     rooms.forEach(function (r) {
-      var poly = r.poly;
-      for (var e = 0; e < poly.length; e++) {
-        var a = poly[e];
-        var b = poly[(e + 1) % poly.length];
-        var mx = (a[0] + b[0]) / 2;
-        var my = (a[1] + b[1]) / 2;
-        var dx = b[0] - a[0];
-        var dy = b[1] - a[1];
-        var nx = -dy;
-        var ny = dx;
-        var nl = Math.hypot(nx, ny) || 1;
-        nx /= nl;
-        ny /= nl;
-        var in1 = rooms.some(function (rr) {
-          return pointInPoly(mx + nx * 0.03, my + ny * 0.03, rr.poly);
-        });
-        var in2 = rooms.some(function (rr) {
-          return pointInPoly(mx - nx * 0.03, my - ny * 0.03, rr.poly);
-        });
-        var p1 = toPx(a[0], a[1]);
-        var p2 = toPx(b[0], b[1]);
-        if (in1 && in2) {
-          ctx.moveTo(p1[0], p1[1]);
-          ctx.lineTo(p2[0], p2[1]);
+      for (var e = 0; e < r.poly.length; e++) {
+        var nb = wallNeighbor(r, e);
+        if (nb && nb.zone === r.zone && r.name < nb.name) {
+          var pp = edgePts(r, e);
+          ctx.moveTo(pp[0][0], pp[0][1]);
+          ctx.lineTo(pp[1][0], pp[1][1]);
         }
       }
     });
     ctx.stroke();
+    // dashed: subroom divisions within a group
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    rooms.forEach(function (r) {
+      for (var e = 0; e < r.poly.length; e++) {
+        var nb = wallNeighbor(r, e);
+        if (nb && nb.zone !== r.zone && r.name < nb.name) {
+          var pp = edgePts(r, e);
+          ctx.moveTo(pp[0][0], pp[0][1]);
+          ctx.lineTo(pp[1][0], pp[1][1]);
+        }
+      }
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // thick outline: outward-facing edges
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = p.text;
     ctx.beginPath();
     rooms.forEach(function (r) {
-      var poly = r.poly;
-      for (var e = 0; e < poly.length; e++) {
-        var a = poly[e];
-        var b = poly[(e + 1) % poly.length];
-        var mx = (a[0] + b[0]) / 2;
-        var my = (a[1] + b[1]) / 2;
-        var dx = b[0] - a[0];
-        var dy = b[1] - a[1];
-        var nx = -dy;
-        var ny = dx;
-        var nl = Math.hypot(nx, ny) || 1;
-        nx /= nl;
-        ny /= nl;
-        var in1 = rooms.some(function (rr) {
-          return pointInPoly(mx + nx * 0.03, my + ny * 0.03, rr.poly);
-        });
-        var in2 = rooms.some(function (rr) {
-          return pointInPoly(mx - nx * 0.03, my - ny * 0.03, rr.poly);
-        });
-        if (in1 !== in2) {
-          var p1 = toPx(a[0], a[1]);
-          var p2 = toPx(b[0], b[1]);
-          ctx.moveTo(p1[0], p1[1]);
-          ctx.lineTo(p2[0], p2[1]);
+      for (var e = 0; e < r.poly.length; e++) {
+        if (!wallNeighbor(r, e)) {
+          var pp = edgePts(r, e);
+          ctx.moveTo(pp[0][0], pp[0][1]);
+          ctx.lineTo(pp[1][0], pp[1][1]);
         }
       }
     });
     ctx.stroke();
-
-
-    // dashed zone-group borders: the limits of each room group (block),
-    // so subroom groupings (3 Terraza, 6 Salon, ...) read as one area.
-    var byZ = {};
-    rooms.forEach(function (r) {
-      (byZ[r.zone] = byZ[r.zone] || []).push(r);
-    });
-    ctx.save();
-    ctx.setLineDash([7, 5]);
-    ctx.lineWidth = 1.6;
-    ctx.strokeStyle = p.zoneDash;
-    var off = 4;
-    for (var z in byZ) {
-      var grp = byZ[z];
-      if (grp.length < 2) continue;
-      var gx0 = 1e9, gy0 = 1e9, gx1 = -1e9, gy1 = -1e9;
-      grp.forEach(function (r) {
-        r.poly.forEach(function (pt) {
-          if (pt[0] < gx0) gx0 = pt[0];
-          if (pt[1] < gy0) gy0 = pt[1];
-          if (pt[0] > gx1) gx1 = pt[0];
-          if (pt[1] > gy1) gy1 = pt[1];
-        });
-      });
-      var tl = toPx(gx0, gy1);
-      var br = toPx(gx1, gy0);
-      ctx.strokeRect(
-        tl[0] - off,
-        tl[1] - off,
-        br[0] - tl[0] + off * 2,
-        br[1] - tl[1] + off * 2,
-      );
-    }
-    ctx.restore();
     // room labels + per-room dBm + optimal highlight (on top of the cells)
     rooms.forEach(function (r, i) {
       if (optimalName === r.name) {

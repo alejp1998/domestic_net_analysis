@@ -35,7 +35,10 @@ walls crossed — **including the exterior walls** when the line leaves the
 house through a concave corner or notch — and the travelled distance is split
 into its **in-flat and out-of-flat parts, both charged in the distance
 degradation** — so neighbouring rooms never lose to
-more distant ones and corner rooms don't over-score. That
+more distant ones and corner rooms don't over-score. All distances are
+converted to **real metres** with the geojson scale factor **×2.6**
+(the notebook's own calibration constant — the flat is ~8.3 × 6.1 m, so
+e.g. Salon-6 → Habitacion2-2 is a 6.9 m line). That
 refinement is why the web edition's optimal spot can differ from the
 notebook's Pasillo-2 result (the notebook's zone matrix is the coarser
 approximation).

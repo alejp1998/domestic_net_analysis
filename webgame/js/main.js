@@ -276,7 +276,8 @@
       }
       prev = ri;
     }
-    return { inside: inside, outside: outside, walls: walls };
+    // geojson unit = 2.6 m (notebook calibration): report METERS
+    return { inside: inside * 2.6, outside: outside * 2.6, walls: walls };
   }
 
   function cellDbm(c, dbPerM, dbPerWall, roomIdx) {

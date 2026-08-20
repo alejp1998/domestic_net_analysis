@@ -381,10 +381,20 @@
             : cellDbm(c, dbPerM(), dbPerWall());
         var tl = toPx(c.x, c.y);
         var br = toPx(c.x + c.w, c.y + c.h);
-        // inflate 1px so adjacent cells overlap — kills hairline white gaps
-        // from sub-pixel rounding (the room clip keeps fills inside the poly)
+        // normalize the rect: the y-flip makes br[1]-tl[1] NEGATIVE, and a
+        // negative height turns the +4px inflation into a SHRINK (2px gap at
+        // every row boundary). Use absolute extents so the overlap works.
+        var rx = Math.min(tl[0], br[0]);
+        var ry = Math.min(tl[1], br[1]);
+        var rw = Math.abs(br[0] - tl[0]);
+        var rh = Math.abs(br[1] - tl[1]);
         ctx.fillStyle = heatColor(v, p);
-        ctx.fillRect(tl[0] - 1, tl[1] - 1, br[0] - tl[0] + 2, br[1] - tl[1] + 2);
+        ctx.fillRect(
+          Math.round(rx - 2),
+          Math.round(ry - 2),
+          Math.round(rw + 4),
+          Math.round(rh + 4),
+        );
       });
       ctx.restore();
     });

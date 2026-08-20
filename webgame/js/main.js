@@ -41,7 +41,7 @@
       repEdge: "#0e7490",
       optimal: "#fbbf24",
       heat: [
-        "#0f172a",
+        "#1e3a8a",
         "#0c4a6e",
         "#0e7490",
         "#06b6d4",
@@ -66,7 +66,7 @@
       repEdge: "#0e7490",
       optimal: "#d97706",
       heat: [
-        "#f8fafc",
+        "#dbeafe",
         "#e0f2fe",
         "#7dd3fc",
         "#22d3ee",

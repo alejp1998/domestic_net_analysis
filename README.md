@@ -28,8 +28,13 @@ measurements.
 ## 🧪 Model & tests
 
 The model was extracted into **`analysis_model.py`** (reusable + unit-tested)
-and ported 1:1 to JavaScript for the web edition (cross-checked: both find
-**Pasillo-2** optimal, matching the notebook's executed output).
+and ported to JavaScript for the web edition. The web simulator **refines the
+notebook's zone-matrix walls with per-cell ray-cast wall counting** — every
+heatmap cell walks the straight line from the router and counts the actual
+walls crossed, so neighbouring rooms never lose to more distant ones. That
+refinement is why the web edition's optimal spot can differ from the
+notebook's Pasillo-2 result (the notebook's zone matrix is the coarser
+approximation).
 
 ```bash
 pip install -e ".[dev]"
@@ -43,23 +48,32 @@ ruff check .
 
 ### 🖼️ Screenshots
 
-| Measured heatmap | Optimal placement |
-|---|---|
-| ![Measured heatmap](docs/webgame_meas.png) | ![Optimal placement](docs/webgame_opt.png) |
+| Measured heatmap | Simulated mode in use | Optimal placement |
+|---|---|---|
+| ![Measured heatmap](docs/webgame_meas.png) | ![Simulated mode](docs/webgame_sim.png) | ![Optimal placement](docs/webgame_opt.png) |
+
 ## 🎮 Interactive web edition
 
 `webgame/` — an interactive floor-plan simulator:
 
 - **🗺️ 4 flat plans** — the real scanned home (rebuilt as a perfectly tiled,
-  gap-free plan) plus three designed flats: **Estudio**, **Piso 2 hab**, **Loft**
+  gap-free plan whose **every wall sits exactly on the simulation cell grid**,
+  so cells and rooms align 1:1) plus three designed flats: **Estudio**,
+  **Piso 2 hab**, **Loft**
 - **🔲 Discrete subdivision model** — a slider chooses the cell size; every
-  cell predicts its own signal (distance to the router + wall attenuation),
-  so heatmaps are smooth and walls are grid-aligned and always meet
+  cell predicts its own signal (distance to the router + ray-cast wall
+  attenuation), so heatmaps are smooth and walls are grid-aligned and always
+  meet
+- **🧭 Zone groups** — rooms of the same functional area (the three Terraza,
+  the six Salon, the Hab.3 block…) are outlined together: dashed lines mark
+  the subroom divisions within a group, solid walls separate groups
 - **📡 Measured** — the real scan heatmap per room
 - **🧪 Simulate** — **drag the router** (and a **repeater**) anywhere; every
   cell's predicted dBm, the score ranking and the heatmap recompute live;
   tune the model's dB/metre and dB/wall sliders
-- **✨ Find optimal room** — runs the notebook's exhaustive search
+- **✨ Find optimal room** — runs the exhaustive search over all rooms
+- **🎨 Cold→hot scale** — −37 dBm (best) deep red → blue (worst), with dBm
+  ticks on the legend
 
 ## 📁 Layout
 

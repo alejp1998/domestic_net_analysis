@@ -36,9 +36,10 @@ house through a concave corner or notch — and the travelled distance is split
 into its **in-flat and out-of-flat parts, both charged in the distance
 degradation** — so neighbouring rooms never lose to
 more distant ones and corner rooms don't over-score. All distances are
-converted to **real metres** with the geojson scale factor **×2.6**
-(the notebook's own calibration constant — the flat is ~8.3 × 6.1 m, so
-e.g. Salon-6 → Habitacion2-2 is a 6.9 m line). That
+converted to **real metres** with the geojson scale factor **×4.45**
+(the original flat is ~120 m² — 14.2 × 10.4 m — so e.g. Salon-6 →
+Habitacion2-2 is an 11.8 m line). A **scale bar** on every map shows the
+real size at a glance. That
 refinement is why the web edition's optimal spot can differ from the
 notebook's Pasillo-2 result (the notebook's zone matrix is the coarser
 approximation).

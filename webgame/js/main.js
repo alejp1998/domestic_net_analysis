@@ -276,8 +276,9 @@
       }
       prev = ri;
     }
-    // geojson unit = 2.6 m (notebook calibration): report METERS
-    return { inside: inside * 2.6, outside: outside * 2.6, walls: walls };
+    // geojson unit = 4.45 m (user: the real flat is ~120 m²):
+    // report the split lengths in real meters
+    return { inside: inside * 4.45, outside: outside * 4.45, walls: walls };
   }
 
   function cellDbm(c, dbPerM, dbPerWall, roomIdx) {
@@ -643,6 +644,7 @@
 
     // legend
     drawLegend(w, h, p);
+    drawScaleBar(w, h, p);
 
     // mode label
     ctx.fillStyle = p.muted;
@@ -670,6 +672,38 @@
     ctx.font = "700 10px system-ui";
     ctx.textAlign = "left";
     ctx.fillText(label + " — drag me", pt[0] + 13, pt[1] + 22);
+  }
+
+
+  // horizontal scale bar (bottom-left pad): shows real meters on the X axis
+  function drawScaleBar(w, h, p) {
+    var pxPerM = (w - 92) / (B.maxX - B.minX) / 4.45;
+    var lens = [1, 2, 5, 10, 20];
+    var len = 2;
+    for (var i = 0; i < lens.length; i++) {
+      if (lens[i] * pxPerM >= 55 && lens[i] * pxPerM <= 150) {
+        len = lens[i];
+        break;
+      }
+    }
+    var barLen = len * pxPerM;
+    var bx = 24;
+    var by = h - 26;
+    ctx.strokeStyle = p.text;
+    ctx.fillStyle = p.text;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(bx + barLen, by);
+    ctx.moveTo(bx, by - 4);
+    ctx.lineTo(bx, by + 4);
+    ctx.moveTo(bx + barLen, by - 4);
+    ctx.lineTo(bx + barLen, by + 4);
+    ctx.stroke();
+    ctx.font = "600 11px system-ui";
+    ctx.textAlign = "left";
+    ctx.fillText(len + " m", bx + barLen + 6, by + 4);
+    ctx.textAlign = "left";
   }
 
   function drawLegend(w, h, p) {

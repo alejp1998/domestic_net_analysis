@@ -128,6 +128,33 @@
     </header>
 
     <main class="cockpit">
+      <aside class="editor-panel" id="custom-editor" hidden>
+        <h2>🧱 Custom flat editor</h2>
+        <p class="keys">
+          Drag on the mini-map to draw rectangular rooms; click with the eraser
+          to remove; then Analyze.
+        </p>
+        <div class="editor-grid">
+          <canvas id="edit-canvas"></canvas>
+        </div>
+        <div class="row" style="gap: 6px; flex-wrap: wrap; margin: 8px 0">
+          <button class="btn mode-btn active" id="tool-draw">🖊️ Draw</button>
+          <button class="btn mode-btn" id="tool-erase">❌ Erase</button>
+          <button class="btn mode-btn" id="btn-clear">🧹 Clear</button>
+        </div>
+        <ul
+          id="custom-rooms"
+          class="keys"
+          style="max-height: 120px; overflow: auto"
+        ></ul>
+        <button
+          class="btn primary"
+          id="btn-analyze"
+          style="width: 100%; margin-top: 8px"
+        >
+          ▶️ Analyze
+        </button>
+      </aside>
       <div class="stage-wrap">
         <div class="stage-panel" id="stage-panel">
           <canvas id="view"></canvas>
@@ -199,26 +226,6 @@
               🔎 Router + repeater
             </button>
           </div>
-          <section id="custom-bar" class="card" hidden>
-            <h3>🧱 Custom flat</h3>
-            <p class="keys">
-              Drag on the grid to draw a rectangular room; click one to select;
-              erase by clicking with the eraser.
-            </p>
-            <div class="row" style="gap: 6px; flex-wrap: wrap">
-              <button class="btn mode-btn active" id="tool-draw">
-                🖊️ Draw
-              </button>
-              <button class="btn mode-btn" id="tool-erase">❌ Erase</button>
-              <button class="btn mode-btn" id="btn-clear">🧹 Clear</button>
-              <button class="btn primary" id="btn-analyze">▶️ Analyze</button>
-            </div>
-            <ul
-              id="custom-rooms"
-              class="keys"
-              style="max-height: 120px; overflow: auto"
-            ></ul>
-          </section>
           <div id="meas-note" class="keys">
             Measured mean dBm per room of the house's own 5&nbsp;GHz network
             (WiFi beacon scan, one capture per room).
@@ -339,6 +346,6 @@
       async
     ></script>
     <script src="js/guide.js?v=3"></script>
-    <script src="js/main.js?v=18"></script>
+    <script src="js/main.js?v=19"></script>
   </body>
 </html>

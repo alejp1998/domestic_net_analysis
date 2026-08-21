@@ -41,7 +41,8 @@ converted to **real metres** with the geojson scale factor **×4.45**
 Habitacion2-2 is an 11.8 m line). A **scale bar** on every map shows the
 real size at a glance, a **router + repeater** search brute-forces the best
 two-device placement (every room-center pair, each cell served by the
-stronger path), and a **custom flat editor** lets you paint your own rooms
+stronger path), and a **custom flat editor** (a separate left-hand panel)
+lets you paint your own rooms
 on a 1 m² grid, name and zone them, and analyze them with the full sim. That
 refinement is why the web edition's optimal spot can differ from the
 notebook's Pasillo-2 result (the notebook's zone matrix is the coarser

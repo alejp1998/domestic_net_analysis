@@ -883,7 +883,7 @@
             if (!overlap) {
               customRooms.push({ gx0: gx0, gy0: gy0, gx1: gx1, gy1: gy1 });
               log(
-                "🧱 Room added — name it + zone it in the left list, then Analyze.",
+                "🧱 Room added — name it + zone it in the editor list, then Analyze.",
               );
             } else {
               log("⚠️ Rooms can't overlap — drag elsewhere.");

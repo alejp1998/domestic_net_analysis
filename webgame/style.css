@@ -233,7 +233,7 @@ body {
   min-height: 0;
 }
 
-.editor-panel {
+.measure-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -242,24 +242,12 @@ body {
   min-height: 0;
   overflow-y: auto;
 }
-
-.editor-panel h2 {
-  margin: 0;
-  font-size: 15px;
+.measure-panel .scores {
+  max-height: 46vh;
+  overflow-y: auto;
 }
-
-.editor-grid {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--bg);
-}
-
-#edit-canvas {
-  display: block;
-  width: 100%;
-  cursor: crosshair;
-  touch-action: none;
+.measure-panel .log {
+  max-height: 32vh;
 }
 
 #custom-rooms input {

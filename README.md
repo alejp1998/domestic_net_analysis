@@ -60,9 +60,9 @@ ruff check .
 
 ### 🖼️ Screenshots
 
-| Measured heatmap | Simulated mode in use | Optimal placement |
-|---|---|---|
-| ![Measured heatmap](docs/webgame_meas.png) | ![Simulated mode](docs/webgame_sim.png) | ![Optimal placement](docs/webgame_opt.png) |
+| Measured heatmap | Simulated mode in use | Optimal placement | Custom flat editor |
+|---|---|---|---|
+| ![Measured heatmap](docs/webgame_meas.png) | ![Simulated mode](docs/webgame_sim.png) | ![Optimal placement](docs/webgame_opt.png) | ![Custom flat editor](docs/webgame_custom.png) |
 
 ## 🎮 Interactive web edition
 

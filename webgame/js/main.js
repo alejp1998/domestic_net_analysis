@@ -821,6 +821,32 @@
 
   function wireCanvas() {
     canvas.addEventListener("pointerdown", function (e) {
+      // custom editor mode: the CENTER canvas is the drawing surface
+      if (mapId === "custom" && !customAnalyzed) {
+        var cell = customGridPos(canvasPx(e).x, canvasPx(e).y);
+        if (customTool === "erase") {
+          var idx = customRoomAt(cell.gx, cell.gy);
+          if (idx !== -1) {
+            customRooms.splice(idx, 1);
+            customSel = -1;
+            refreshCustomList();
+            renderEditor();
+          }
+          return;
+        }
+        var existing = customRoomAt(cell.gx, cell.gy);
+        if (existing !== -1) {
+          customSel = existing;
+          refreshCustomList();
+          renderEditor();
+          return;
+        }
+        customDrag = cell;
+        customPreview = cell;
+        canvas.setPointerCapture(e.pointerId);
+        renderEditor();
+        return;
+      }
       var pos = canvasPos(e);
       if (mode !== "sim") return;
       var dr = dist(pos, router) * UNIT_M;
@@ -831,10 +857,45 @@
       updateDrag(pos);
     });
     canvas.addEventListener("pointermove", function (e) {
+      if (mapId === "custom" && !customAnalyzed) {
+        if (customDrag) {
+          customPreview = customGridPos(canvasPx(e).x, canvasPx(e).y);
+          renderEditor();
+        }
+        return;
+      }
       if (!drag) return;
       updateDrag(canvasPos(e));
     });
     canvas.addEventListener("pointerup", function () {
+      if (mapId === "custom" && !customAnalyzed) {
+        if (customDrag && customPreview) {
+          var gx0 = Math.min(customDrag.gx, customPreview.gx);
+          var gy0 = Math.min(customDrag.gy, customPreview.gy);
+          var gx1 = Math.max(customDrag.gx, customPreview.gx);
+          var gy1 = Math.max(customDrag.gy, customPreview.gy);
+          if (gx1 > gx0 || gy1 > gy0) {
+            var overlap = customRooms.some(function (r) {
+              return (
+                r.gx0 <= gx1 && r.gx1 >= gx0 && r.gy0 <= gy1 && r.gy1 >= gy0
+              );
+            });
+            if (!overlap) {
+              customRooms.push({ gx0: gx0, gy0: gy0, gx1: gx1, gy1: gy1 });
+              log(
+                "🧱 Room added — name it + zone it in the left list, then Analyze.",
+              );
+            } else {
+              log("⚠️ Rooms can't overlap — drag elsewhere.");
+            }
+          }
+          customDrag = null;
+          customPreview = null;
+          refreshCustomList();
+          renderEditor();
+        }
+        return;
+      }
       if (drag) {
         log(
           "📶 Source moved — " +
@@ -961,13 +1022,22 @@
   }
 
   function renderEditor() {
-    // the LEFT mini-canvas is the editing surface; the main canvas mirrors it
+    // the CENTER canvas is the editing surface
     var w = canvas.width / dpr();
     var h = canvas.height / dpr();
     drawEditorOn(ctx, w, h);
-    var ec = $id("edit-canvas");
-    if (ec && ec.width)
-      drawEditorOn(ec.getContext("2d"), ec.width / dpr(), ec.height / dpr());
+    ctx.font = "600 12px system-ui";
+    ctx.textAlign = "right";
+    ctx.fillStyle = pal().muted;
+    ctx.fillText(
+      "🧱 " +
+        customRooms.length +
+        " room" +
+        (customRooms.length === 1 ? "" : "s") +
+        " drawn",
+      w - 12,
+      22,
+    );
   }
 
   function refreshCustomList() {
@@ -1061,119 +1131,28 @@
   }
 
   function wireEditor() {
-    var ec = $id("edit-canvas");
-    if (!ec || ec.dataset.wired) return;
-    ec.dataset.wired = "1";
-    var ectx = ec.getContext("2d");
-    function ePos(e) {
-      var r = ec.getBoundingClientRect();
-      return { x: e.clientX - r.left, y: e.clientY - r.top };
-    }
-    function eGrid(px, py) {
-      var w = ec.width / dpr();
-      var h = ec.height / dpr();
-      var pad = 46;
-      var ux = (w - pad * 2) / CUSTOM_W;
-      var uy = (h - pad * 2) / CUSTOM_H;
-      return {
-        gx: Math.max(0, Math.min(CUSTOM_W - 1, Math.floor((px - pad) / ux))),
-        gy: Math.max(0, Math.min(CUSTOM_H - 1, Math.floor((py - pad) / uy))),
-      };
-    }
-    ec.addEventListener("pointerdown", function (e) {
-      if (mapId !== "custom" || customAnalyzed) return;
-      var cell = eGrid(ePos(e).x, ePos(e).y);
-      if (customTool === "erase") {
-        var idx = customRoomAt(cell.gx, cell.gy);
-        if (idx !== -1) {
-          customRooms.splice(idx, 1);
-          customSel = -1;
-          refreshCustomList();
-          renderEditor();
-        }
-        return;
-      }
-      var existing = customRoomAt(cell.gx, cell.gy);
-      if (existing !== -1) {
-        customSel = existing;
-        refreshCustomList();
-        renderEditor();
-        return;
-      }
-      customDrag = cell;
-      customPreview = cell;
-      ec.setPointerCapture(e.pointerId);
-      renderEditor();
-    });
-    ec.addEventListener("pointermove", function (e) {
-      if (!customDrag) return;
-      customPreview = eGrid(ePos(e).x, ePos(e).y);
-      renderEditor();
-    });
-    ec.addEventListener("pointerup", function () {
-      if (customDrag && customPreview) {
-        var gx0 = Math.min(customDrag.gx, customPreview.gx);
-        var gx1 = Math.max(customDrag.gx, customPreview.gx);
-        var gy0 = Math.min(customDrag.gy, customPreview.gy);
-        var gy1 = Math.max(customDrag.gy, customPreview.gy);
-        if (gx1 > gx0 || gy1 > gy0) {
-          var ok = true;
-          for (var i = 0; i < customRooms.length; i++) {
-            var r = customRooms[i];
-            if (gx0 <= r.gx1 && gx1 >= r.gx0 && gy0 <= r.gy1 && gy1 >= r.gy0) {
-              ok = false;
-              break;
-            }
-          }
-          if (ok) {
-            customRooms.push({
-              gx0: gx0,
-              gy0: gy0,
-              gx1: gx1,
-              gy1: gy1,
-              name: "",
-              zone: "",
-            });
-            refreshCustomList();
-          } else {
-            log("🧱 Room overlaps an existing room — drag a free area.");
-          }
-        }
-      }
-      customDrag = null;
-      customPreview = null;
-      renderEditor();
-    });
+    if (window.__editorWired) return;
+    window.__editorWired = true;
     $id("tool-draw").addEventListener("click", function () {
       customTool = "draw";
-      $id("tool-draw").classList.add("active");
+      this.classList.add("active");
       $id("tool-erase").classList.remove("active");
     });
     $id("tool-erase").addEventListener("click", function () {
       customTool = "erase";
-      $id("tool-erase").classList.add("active");
+      this.classList.add("active");
       $id("tool-draw").classList.remove("active");
     });
     $id("btn-clear").addEventListener("click", function () {
-      if (!customRooms.length) return;
       customRooms.length = 0;
       customSel = -1;
+      customDrag = null;
+      customPreview = null;
       refreshCustomList();
-      renderEditor();
       log("🧹 Custom flat cleared.");
+      renderEditor();
     });
     $id("btn-analyze").addEventListener("click", analyzeCustom);
-  }
-
-  function sizeEditorCanvas() {
-    var ec = $id("edit-canvas");
-    if (!ec) return;
-    var d = dpr();
-    var w = ec.clientWidth || 240;
-    var h = Math.round((w * CUSTOM_H) / CUSTOM_W);
-    ec.width = Math.round(w * d);
-    ec.height = Math.round(h * d);
-    ec.style.height = h + "px";
   }
 
   function enterCustomEditor() {
@@ -1181,7 +1160,6 @@
     UNIT_M = 1;
     mapId = "custom";
     $id("custom-editor").hidden = false;
-    sizeEditorCanvas();
     wireEditor();
     refreshCustomList();
     sizeCanvas();
